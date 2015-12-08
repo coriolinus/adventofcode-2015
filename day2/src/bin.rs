@@ -6,7 +6,8 @@ use std::io;
 use std::io::prelude::*;
 
 fn main() {
-    let mut sum = 0;
+    let mut paper = 0;
+    let mut ribbon = 0;
 
     let input: io::Result<String> = get_input("Enter boxes, separated by '\\n', terminated by EOF: \n");
     let input = match input {
@@ -18,14 +19,16 @@ fn main() {
         let line = line.trim();
         if line.len() == 0 {continue;}
         if let Ok(g) = GiftBox::parse(line) {
-            sum += g.paper();
+            paper += g.paper();
+            ribbon += g.ribbon();
         } else {
             println!("Failed to parse '{}'; aborting", line);
             return;
         }
     }
 
-    println!("Total paper required: {}", sum);
+    println!("Total paper required: {}", paper);
+    println!("Total ribbon required: {}", ribbon);
 }
 
 fn get_input(prompt: &str) -> io::Result<String> {

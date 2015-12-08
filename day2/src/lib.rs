@@ -21,9 +21,9 @@
 #[derive(PartialEq, Eq, Debug)]
 pub struct GiftBox {
     // dimensions
-    _x: i32,
-    _y: i32,
-    _z: i32,
+    x: i32,
+    y: i32,
+    z: i32,
 
     // surface areas
     xy: i32,
@@ -36,9 +36,9 @@ impl GiftBox {
     pub fn new(x: i32, y: i32, z: i32) -> Result<GiftBox, &'static str> {
         if x > 0 && y > 0 && z > 0 {
             Ok(GiftBox {
-                _x:  x,
-                _y:  y,
-                _z:  z,
+                x:  x,
+                y:  y,
+                z:  z,
                 xy: x*y,
                 xz: x*z,
                 yz: y*z,
@@ -78,8 +78,29 @@ impl GiftBox {
     }
 
     /// Return the paper requirement for this box
+    ///
+    /// Defined in the problem as the surface area plus the area of the smallest side.
     pub fn paper(&self) -> i32 {
         self.surface_area() + self.smallest_side()
+    }
+
+    pub fn volume(&self) -> i32 {
+        self.x * self.y * self.z
+    }
+
+    pub fn largest_dimension(&self) -> i32 {
+        std::cmp::max(self.x, std::cmp::max(self.y, self.z))
+    }
+
+    pub fn smallest_side_perimeter(&self) -> i32 {
+        2 * (self.x + self.y + self.z - self.largest_dimension())
+    }
+
+    /// Return the ribbon requirement for this box
+    ///
+    /// Definted in the problem as the volume plus the perimeter of the smallest side.
+    pub fn ribbon(&self) -> i32 {
+        self.volume() + self.smallest_side_perimeter()
     }
 }
 
@@ -130,6 +151,33 @@ mod tests {
 
         for (g, e) in get_boxes().iter().zip(expected) {
             assert_eq!(g.paper(), e);
+        }
+    }
+
+    #[test]
+    fn test_volume() {
+        let expected = vec![1, 24, 10];
+
+        for (g, e) in get_boxes().iter().zip(expected) {
+            assert_eq!(g.volume(), e);
+        }
+    }
+
+    #[test]
+    fn test_smallest_side_perimeter() {
+        let expected = vec![4, 10, 4];
+
+        for (g, e) in get_boxes().iter().zip(expected) {
+            assert_eq!(g.smallest_side_perimeter(), e);
+        }
+    }
+
+    #[test]
+    fn test_ribbon() {
+        let expected = vec![5, 34, 14];
+
+        for (g, e) in get_boxes().iter().zip(expected) {
+            assert_eq!(g.ribbon(), e);
         }
     }
 }
