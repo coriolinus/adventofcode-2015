@@ -36,6 +36,7 @@
 //! ```
 
 use std::io;
+use std::io::Write;
 
 fn main() {
     let floor = count_parens(&get_input());
@@ -44,6 +45,10 @@ fn main() {
 
 fn get_input() -> String {
     print!("Input the parenthetical expression now: ");
+
+    // flush stdout explicitly so it shows up at the end of the line
+    io::stdout().flush().ok().expect("Could not flush stdout");
+
     let mut input = String::new();
     let _ = io::stdin().read_line(&mut input);
 
