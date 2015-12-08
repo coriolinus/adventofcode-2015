@@ -18,7 +18,7 @@
 //!
 //! # Code Examples
 
-
+#[derive(PartialEq, Eq, Debug)]
 pub struct GiftBox {
     // dimensions
     _x: i32,
@@ -95,6 +95,15 @@ mod tests {
         ret.push(GiftBox::new(1, 1, 10).ok().expect("Failed to construct GiftBox(1, 1, 10)"));
 
         ret
+    }
+
+    #[test]
+    fn test_parse() {
+        let inputs = vec!["1x1x1", "2x3x4", "1x1x10"];
+
+        for (g, i) in get_boxes().iter().zip(inputs) {
+            assert_eq!(g, &GiftBox::parse(i).ok().unwrap());
+        }
     }
 
     #[test]
