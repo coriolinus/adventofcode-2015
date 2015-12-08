@@ -2,3 +2,11 @@
 name = "day2"
 version = "0.1.0"
 authors = ["coriolinus <coriolinus@gmail.com>"]
+
+[lib]
+name = "day2lib"
+path = "src/lib.rs"
+
+[[bin]]
+name = "day2bin"
+path = "src/bin.rs"
