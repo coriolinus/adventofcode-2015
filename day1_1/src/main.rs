@@ -61,8 +61,10 @@ use std::io;
 use std::io::Write;
 
 fn main() {
-    let floor = count_parens(&get_input());
+    let input = get_input();
+    let floor = count_parens(&input);
     println!("Floor: {}", floor);
+    println!("Basement entry: {}", find_basement_entry(&input));
 }
 
 fn get_input() -> String {
@@ -82,9 +84,27 @@ fn count_parens(input: &str) -> i32 {
     input.chars().fold(0, |sum, ch| if ch == '(' {sum + 1} else if ch == ')' {sum - 1} else {sum})
 }
 
+fn find_basement_entry(input: &str) -> usize {
+    let mut floor = 0;
+
+    for (i, ch) in input.chars().enumerate() {
+        if ch == '(' {
+            floor += 1;
+        } else if ch == ')' {
+            floor -= 1
+        }
+
+        if floor == -1 {
+            return i+1;
+        }
+    }
+    0
+}
+
 #[cfg(test)]
 mod tests {
     use super::count_parens;
+    use super::find_basement_entry;
 
     #[test]
     fn count_to_floor_0() {
@@ -115,5 +135,20 @@ mod tests {
     fn ignore_non_parens() {
         assert_eq!(0, count_parens("hello, world"));
         assert_eq!(0, count_parens("assert_eq!(0, count_parens(\"hello, world\"));"));
+    }
+
+    #[test]
+    fn find_basement_first_char() {
+        assert_eq!(1, find_basement_entry(")"));
+    }
+
+    #[test]
+    fn find_basement_fifth_char() {
+        assert_eq!(5, find_basement_entry("()())"));
+    }
+
+    #[test]
+    fn find_basement_never_enters() {
+        assert_eq!(0, find_basement_entry("(((())(()))((())"));
     }
 }
