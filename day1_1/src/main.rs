@@ -44,7 +44,7 @@
 //! assert_eq!(-1, count_parens("())"     ));
 //! ```
 //! ```
-//! assert_eq!(-1, count_parens("))()"    ));
+//! assert_eq!(-1, count_parens("))("    ));
 //! ```
 //!
 //! ))) and )())()) both result in floor -3.
@@ -80,4 +80,40 @@ fn get_input() -> String {
 /// Returns <number of open parens> - <number of close parens> in the given string
 fn count_parens(input: &str) -> i32 {
     input.chars().fold(0, |sum, ch| if ch == '(' {sum + 1} else if ch == ')' {sum - 1} else {sum})
+}
+
+#[cfg(test)]
+mod tests {
+    use super::count_parens;
+
+    #[test]
+    fn count_to_floor_0() {
+        assert_eq!( 0, count_parens("(())"    ));
+        assert_eq!( 0, count_parens("()()"    ));
+    }
+
+    #[test]
+    fn count_to_floor_3() {
+        assert_eq!( 3, count_parens("((("     ));
+        assert_eq!( 3, count_parens("(()(()(" ));
+        assert_eq!( 3, count_parens("))(((((" ));
+    }
+
+    #[test]
+    fn count_to_neg_1() {
+        assert_eq!(-1, count_parens("())"     ));
+        assert_eq!(-1, count_parens("))("    ));
+    }
+
+    #[test]
+    fn count_to_neg_3() {
+        assert_eq!(-3, count_parens(")))"     ));
+        assert_eq!(-3, count_parens(")())())" ));
+    }
+
+    #[test]
+    fn ignore_non_parens() {
+        assert_eq!(0, count_parens("hello, world"));
+        assert_eq!(0, count_parens("assert_eq!(0, count_parens(\"hello, world\"));"));
+    }
 }
