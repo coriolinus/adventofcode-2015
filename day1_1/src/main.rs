@@ -12,28 +12,50 @@
 //!
 //! The apartment building is very tall, and the basement is very deep; he will never find the top or bottom floors.
 //!
-//! For example:
+//! #Examples
 //!
 //! (()) and ()() both result in floor 0.
-//! ((( and (()(()( both result in floor 3.
-//! ))((((( also results in floor 3.
-//! ()) and ))( both result in floor -1 (the first basement level).
-//! ))) and )())()) both result in floor -3.
-//! To what floor do the instructions take Santa?
-//!
-//! # Examples
 //!
 //! ```
 //! assert_eq!( 0, count_parens("(())"    ));
+//! ```
+//! ```
 //! assert_eq!( 0, count_parens("()()"    ));
-//! assert_eq!( 3, count_parens("((()))"  ));
+//! ```
+//!
+//! ((( and (()(()( both result in floor 3.
+//!
+//! ```
+//! assert_eq!( 3, count_parens("((("     ));
+//! ```
+//! ```
 //! assert_eq!( 3, count_parens("(()(()(" ));
+//! ```
+//!
+//! ))((((( also results in floor 3.
+//!
+//! ```
 //! assert_eq!( 3, count_parens("))(((((" ));
+//! ```
+//!
+//! ()) and ))( both result in floor -1 (the first basement level).
+//!
+//! ```
 //! assert_eq!(-1, count_parens("())"     ));
+//! ```
+//! ```
 //! assert_eq!(-1, count_parens("))()"    ));
+//! ```
+//!
+//! ))) and )())()) both result in floor -3.
+//!
+//! ```
 //! assert_eq!(-3, count_parens(")))"     ));
+//! ```
+//! ```
 //! assert_eq!(-3, count_parens(")())())" ));
 //! ```
+
 
 use std::io;
 use std::io::Write;
