@@ -18,8 +18,8 @@
 //!   starting/ending location.
 //! - `^v^v^v^v^v` delivers a bunch of presents to some very lucky children at only 2 houses.
 
-#[derive(PartialEq, Eq, Hash, Default, Debug)]
-struct Point {
+#[derive(PartialEq, Eq, Hash, Default, Clone, Debug)]
+pub struct Point {
     x: i32,
     y: i32,
 }
@@ -40,5 +40,15 @@ impl Point {
     }
     pub fn west(&self) -> Point {
         Point { x: self.x - 1, ..*self }
+    }
+
+    pub fn move_from_char(&self, ch: &char) -> Point {
+        match *ch {
+            '^' => self.north(),
+            'v' => self.south(),
+            '>' => self.east(),
+            '<' => self.west(),
+            _ => self.clone(),
+        }
     }
 }
