@@ -25,7 +25,7 @@ use std::sync::mpsc::{channel, Sender};
 use std::thread;
 
 const WORK_SIZE: u64 = 1024;
-const MIN_ZEROES: usize = 5;
+const MIN_ZEROES: usize = 6;
 
 pub fn mine_coin(secret: &str) -> Option<u64> {
     let cpus = num_cpus::get();
