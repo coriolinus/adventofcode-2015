@@ -13,3 +13,5 @@ path = "src/bin.rs"
 
 [dependencies]
 util = { path = "../util"}
+num_cpus = "^0.2"
+rust-crypto = "^0.2"
