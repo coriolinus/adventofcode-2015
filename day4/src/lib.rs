@@ -28,9 +28,11 @@ const WORK_SIZE: u64 = 1024;
 const MIN_ZEROES: usize = 5;
 
 pub fn mine_coin(secret: &str) -> Option<u64> {
-    // multiprocessing!
     let cpus = num_cpus::get();
+    mine_coin_with_cores(secret, cpus)
+}
 
+pub fn mine_coin_with_cores(secret: &str, cpus: usize) -> Option<u64> {
     // set up the results channel
     // the below just doesn't work: Multi-producer, single consumer means
     // that you can't clone receivers. Instead, we have to construct these later
