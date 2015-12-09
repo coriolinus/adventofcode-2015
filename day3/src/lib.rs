@@ -1,4 +1,4 @@
-//! --- Day 3: Perfectly Spherical Houses in a Vacuum ---
+//! # Day 3: Perfectly Spherical Houses in a Vacuum
 //!
 //! Santa is delivering presents to an infinite two-dimensional grid of houses.
 //!
@@ -17,6 +17,7 @@
 //! - `^>v<` delivers presents to 4 houses in a square, including twice to the house at his
 //!   starting/ending location.
 //! - `^v^v^v^v^v` delivers a bunch of presents to some very lucky children at only 2 houses.
+
 
 #[derive(PartialEq, Eq, Hash, Default, Clone, Debug)]
 pub struct Point {
@@ -56,8 +57,8 @@ impl Point {
 use std::collections::HashMap;
 
 pub struct CookieCrumbs {
-    santa: Point,
-    trail: HashMap<Point, u32>,
+    pub santa: Point,
+    pub trail: HashMap<Point, u32>,
 }
 
 impl CookieCrumbs {
@@ -87,5 +88,75 @@ impl CookieCrumbs {
         if insert {
             self.trail.insert(self.santa.clone(), 1);
         }
+    }
+}
+
+/// Main point of entry to this lib: given a string of directions, follow santa and return the
+/// pattern of cookie crumbs.
+///
+/// - `>` delivers presents to 2 houses: one at the starting location, and one to the east.
+///
+///   ```
+///   # use day3lib::follow_santa;
+///   assert_eq!(follow_santa(">".to_string()).trail.len(), 2);
+///   ```
+///
+/// - `^>v<` delivers presents to 4 houses in a square, including twice to the house at his
+///   starting/ending location.
+///
+///   ```
+///   # use day3lib::follow_santa;
+///   assert_eq!(follow_santa("^>v<".to_string()).trail.len(), 4);
+///   ```
+///
+/// - `^v^v^v^v^v` delivers a bunch of presents to some very lucky children at only 2 houses.
+///
+///   ```
+///   # use day3lib::follow_santa;
+///   assert_eq!(follow_santa("^v^v^v^v^v".to_string()).trail.len(), 2);
+///   ```
+pub fn follow_santa(path: String) -> CookieCrumbs {
+    let mut cc = CookieCrumbs::new();
+    for ch in path.chars() {
+        cc.move_from_char(&ch);
+    }
+    cc
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_point_default() {
+        assert_eq!(Point::default(), Point::new(0, 0));
+    }
+
+    #[test]
+    fn test_point_directions() {
+        assert_eq!(Point::default().north(), Point::new(0, 1));
+        assert_eq!(Point::default().south(), Point::new(0, -1));
+        assert_eq!(Point::default().east(), Point::new(1, 0));
+        assert_eq!(Point::default().west(), Point::new(-1, 0));
+    }
+
+    #[test]
+    fn test_point_move_from_char() {
+        assert_eq!(Point::default().move_from_char(&' '), Point::new(0, 0));
+        assert_eq!(Point::default().move_from_char(&'^'), Point::new(0, 1));
+        assert_eq!(Point::default().move_from_char(&'v'), Point::new(0, -1));
+        assert_eq!(Point::default().move_from_char(&'>'), Point::new(1, 0));
+        assert_eq!(Point::default().move_from_char(&'<'), Point::new(-1, 0));
+    }
+
+    #[test]
+    fn test_cc_new() {
+        let cc = CookieCrumbs::new();
+        assert_eq!(cc.santa, Point::default());
+        assert_eq!(cc.trail.len(), 1);
+        let first_crumb = cc.trail.keys().next().unwrap();
+        assert_eq!(first_crumb, &Point::default());
+        let first_visits = cc.trail.values().next().unwrap();
+        assert_eq!(first_visits, &1);
     }
 }
