@@ -52,3 +52,40 @@ impl Point {
         }
     }
 }
+
+use std::collections::HashMap;
+
+pub struct CookieCrumbs {
+    santa: Point,
+    trail: HashMap<Point, u32>,
+}
+
+impl CookieCrumbs {
+    pub fn new() -> CookieCrumbs {
+        let mut cc = CookieCrumbs {
+            santa: Point::new(0, 0),
+            trail: HashMap::new(),
+        };
+
+        // by the problem definition, Santa has already visited the house at the origin
+        cc.trail.insert(cc.santa.clone(), 1);
+        cc
+    }
+
+    pub fn move_from_char(&mut self, ch: &char) {
+        let new_pt = self.santa.move_from_char(ch);
+        if new_pt == self.santa {
+            return; // no-op if we don't move
+        }
+        self.santa = new_pt;
+
+        let mut insert = true;
+        if let Some(val) = self.trail.get_mut(&self.santa) {
+            *val += 1;
+            insert = false;
+        }
+        if insert {
+            self.trail.insert(self.santa.clone(), 1);
+        }
+    }
+}
