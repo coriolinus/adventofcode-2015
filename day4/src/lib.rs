@@ -21,54 +21,85 @@ extern crate crypto;
 use crypto::md5::Md5;
 use crypto::digest::Digest;
 
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::mpsc::{channel, Sender};
+use std::thread;
 
 const WORK_SIZE: u64 = 1024;
 const MIN_ZEROES: usize = 5;
 
 pub fn mine_coin(secret: &str) -> Option<u64> {
-    // TODO: multiprocessing!
-    // let cpus = num_cpus::get();
-    // for _ in 0..cpus {
-    // }
+    // multiprocessing!
+    let cpus = num_cpus::get();
 
-    // in the meantime, here's a single-threaded thing to demonstrate the concept:
+    // set up the results channel
+    // the below just doesn't work: Multi-producer, single consumer means
+    // that you can't clone receivers. Instead, we have to construct these later
+    // let (next_work_tx, next_work_rx) = channel();
+    let (result_tx, result_rx) = channel();
 
-    let mut next_work = 0;
-    let finished = AtomicBool::new(false);
+    // an iterator handing out units of work which dies before overflow
+    let next_work_iter = (0..).map(|x| x * WORK_SIZE).take_while(|x| x < &std::u64::MAX);
 
-    while next_work < (std::u64::MAX - WORK_SIZE) {
-        let mining = miner(secret, &next_work, &finished);
-        next_work += WORK_SIZE;
-        if mining.is_some() {
-            return mining;
+    // launch worker threads
+    for _ in 0..cpus {
+        let secret = secret.to_owned();
+        let result_tx = result_tx.clone();
+        thread::spawn(move || {
+            mine(&secret, result_tx);
+        });
+    }
+
+    // send work to threads
+    for next_work in next_work_iter {
+        // consume one child-thread result and separate into the identifier and the data
+        let (next_work_tx, result) = result_rx.recv().unwrap();
+        if let Some(result) = result {
+            // now just return our result
+            return Some(result);
+        } else {
+            // send the next unit of work
+            // panicing if the receiver isn't around to take it
+            next_work_tx.send(next_work).unwrap();
         }
     }
     None
 }
 
-fn miner(secret: &str, begin_at: &u64, finished: &AtomicBool) -> Option<u64> {
+fn mine(secret: &str, result: Sender<(Sender<u64>, Option<u64>)>) {
     let mut md5 = Md5::new();
-    for current in *begin_at..(*begin_at + WORK_SIZE) {
-        if finished.load(Ordering::Acquire) {
-            return None;
-        }
 
-        let mix = &(secret.clone().to_string() + &current.to_string());
+    // create the transmission channel
+    let (next_work_tx, next_work_rx) = channel();
+    // send this transmission channel so we can get our first unit of work
+    // and panic if the original thread isn't around to receive it
+    if !result.send((next_work_tx.clone(), None)).is_err() {
+        // skip all this if we're already receiving errors
+        loop {
+            let begin_at = next_work_rx.recv().unwrap();
+            for current in begin_at..(begin_at + WORK_SIZE) {
 
-        md5.input_str(mix);
-        let digest = md5.result_str();
-        md5.reset();
+                let mix = &(secret.clone().to_string() + &current.to_string());
 
-        if digest.chars().take(MIN_ZEROES).all(|c| c == '0') {
-            finished.store(true, Ordering::Release);
-            return Some(current);
+                md5.input_str(mix);
+                let digest = md5.result_str();
+                md5.reset();
+
+                if result.send((next_work_tx.clone(),
+                                {
+                             if digest.chars().take(MIN_ZEROES).all(|c| c == '0') {
+                                 Some(current)
+                             } else {
+                                 None
+                             }
+                         }))
+                         .is_err() {
+                    break;
+                }
+            }
         }
     }
-
-    None
 }
+
 
 #[cfg(test)]
 mod tests {
