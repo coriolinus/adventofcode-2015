@@ -34,9 +34,6 @@ pub fn mine_coin(secret: &str) -> Option<u64> {
 
 pub fn mine_coin_with_cores(secret: &str, cpus: usize) -> Option<u64> {
     // set up the results channel
-    // the below just doesn't work: Multi-producer, single consumer means
-    // that you can't clone receivers. Instead, we have to construct these later
-    // let (next_work_tx, next_work_rx) = channel();
     let (result_tx, result_rx) = channel();
 
     // an iterator handing out units of work which dies before overflow
@@ -102,10 +99,11 @@ fn mine(secret: &str, result: Sender<(Sender<u64>, Option<u64>)>) {
     }
 }
 
-
+// extern crate test;
 #[cfg(test)]
 mod tests {
     use super::*;
+    // use test::Bencher;
 
     fn test_known(secret: &str, expected: u64) {
         let coin = mine_coin(secret);
@@ -121,4 +119,23 @@ mod tests {
         test_known("abcdef", 609043);
         test_known("pqrstuv", 1048970);
     }
+
+    // Benchmarks disabled due to not compiling in the stable compiler (!)
+    // #[bench]
+    // fn bench_one_core(b: &mut Bencher) {
+    //     b.iter(|| mine_coin_with_cores("coriolinus", 1));
+    // }
+
+    // #[bench]
+    // fn bench_four_cores(b: &mut Bencher) {
+    //     if num_cpus::get() >= 4 {
+    //         b.iter(|| mine_coin_with_cores("coriolinus", 4));
+    //     }
+    // }
+
+    // #[bench]
+    // fn bench_all_cores(b: &mut Bencher) {
+    //     let cpus = num_cpus::get();
+    //     b.iter(|| mine_coin_with_cores("coriolinus", cpus));
+    // }
 }
