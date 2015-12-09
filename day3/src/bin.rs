@@ -1,13 +1,17 @@
 extern crate day3lib;
 use day3lib::follow_santa;
+use day3lib::follow_n_santas;
+use day3lib::unique_houses;
 
 use std::io;
 use std::io::prelude::*;
 
 fn main() {
     if let Ok(input) = get_input("Enter Santa's path now: ", false) {
-        let cc = follow_santa(input);
-        println!("Houses visited: {}", cc.trail.len());
+        let cc = follow_santa(&input);
+        println!("Houses visited (1 santa): {}", cc.trail.len());
+        let uh = unique_houses(&follow_n_santas(&input, 2));
+        println!("Houses visited (2 santas): {}", uh);
     } else {
         println!("Failed to parse; try again later")
     }

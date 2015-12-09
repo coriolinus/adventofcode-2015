@@ -115,12 +115,76 @@ impl CookieCrumbs {
 ///   # use day3lib::follow_santa;
 ///   assert_eq!(follow_santa("^v^v^v^v^v".to_string()).trail.len(), 2);
 ///   ```
-pub fn follow_santa(path: String) -> CookieCrumbs {
+pub fn follow_santa(path: &String) -> CookieCrumbs {
     let mut cc = CookieCrumbs::new();
     for ch in path.chars() {
         cc.move_from_char(&ch);
     }
     cc
+}
+
+/// Given a string of directions, divide them among `n` anonymous santas.
+/// Each receives one direction in turn following the last.
+///
+/// # Narrative
+///
+/// The next year, to speed up the process, Santa creates a robot version of himself, Robo-Santa,
+/// to deliver presents with him.
+///
+/// # Examples
+///
+/// - `^v` delivers presents to 3 houses, because Santa goes north, and then Robo-Santa goes south.
+/// - `^>v<` now delivers presents to 3 houses, and Santa and Robo-Santa end up back where they
+///   started.
+/// - `^v^v^v^v^v` now delivers presents to 11 houses, with Santa going one direction and
+///   Robo-Santa going the other.
+///
+/// # Code Examples
+/// ```
+/// # use day3lib::follow_n_santas;
+/// # use day3lib::unique_houses;
+/// let uh = unique_houses(&follow_n_santas("^v".to_string(), 2));
+/// assert_eq!(uh, 3);
+/// ```
+/// ```
+/// # use day3lib::follow_n_santas;
+/// # use day3lib::unique_houses;
+/// let uh = unique_houses(&follow_n_santas("^>v<".to_string(), 2));
+/// assert_eq!(uh, 3);
+/// ```
+/// ```
+/// # use day3lib::follow_n_santas;
+/// # use day3lib::unique_houses;
+/// let uh = unique_houses(&follow_n_santas("^v^v^v^v^v".to_string(), 2));
+/// assert_eq!(uh, 11);
+/// ```
+pub fn follow_n_santas(path: &String, n: usize) -> Vec<CookieCrumbs> {
+
+    // initialize the output vector
+    let mut vout: Vec<CookieCrumbs> = Vec::new();
+    for _ in 0..n {
+        vout.push(CookieCrumbs::new());
+    }
+
+    for (i, ch) in path.chars().enumerate() {
+        vout[i % n].move_from_char(&ch);
+    }
+
+    vout
+}
+
+use std::collections::HashSet;
+
+pub fn unique_houses(v: &Vec<CookieCrumbs>) -> usize {
+    let mut houses = HashSet::new();
+
+    for cc in v {
+        for house in cc.trail.keys() {
+            houses.insert(house);
+        }
+    }
+
+    houses.len()
 }
 
 #[cfg(test)]
