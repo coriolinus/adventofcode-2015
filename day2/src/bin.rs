@@ -9,7 +9,8 @@ fn main() {
     let mut paper = 0;
     let mut ribbon = 0;
 
-    let input: io::Result<String> = get_input("Enter boxes, separated by '\\n', terminated by EOF: \n");
+    let input: io::Result<String> = get_input("Enter boxes, separated by '\\n', terminated by \
+                                               EOF: \n");
     let input = match input {
         Ok(x) => x,
         Err(_) => return,
@@ -17,7 +18,9 @@ fn main() {
 
     for line in input.split("\n") {
         let line = line.trim();
-        if line.len() == 0 {continue;}
+        if line.len() == 0 {
+            continue;
+        }
         if let Ok(g) = GiftBox::parse(line) {
             paper += g.paper();
             ribbon += g.ribbon();

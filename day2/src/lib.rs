@@ -36,12 +36,12 @@ impl GiftBox {
     pub fn new(x: i32, y: i32, z: i32) -> Result<GiftBox, &'static str> {
         if x > 0 && y > 0 && z > 0 {
             Ok(GiftBox {
-                x:  x,
-                y:  y,
-                z:  z,
-                xy: x*y,
-                xz: x*z,
-                yz: y*z,
+                x: x,
+                y: y,
+                z: z,
+                xy: x * y,
+                xz: x * z,
+                yz: y * z,
             })
         } else {
             Err("Can't construct a box with dimension 0 or less!")
@@ -54,7 +54,9 @@ impl GiftBox {
     pub fn parse(input: &str) -> Result<GiftBox, &'static str> {
         // split on 'x'
         let ivec: Vec<&str> = input.split('x').collect();
-        if ivec.len() != 3 {return Err("input did not contain two 'x' chars; could not parse");}
+        if ivec.len() != 3 {
+            return Err("input did not contain two 'x' chars; could not parse");
+        }
 
         let x = ivec[0].parse::<i32>();
         let y = ivec[1].parse::<i32>();
@@ -111,8 +113,8 @@ mod tests {
     fn get_boxes() -> Vec<GiftBox> {
         let mut ret: Vec<GiftBox> = Vec::new();
 
-        ret.push(GiftBox::new(1, 1, 1).ok().expect("Failed to construct GiftBox(1, 1, 1)")  );
-        ret.push(GiftBox::new(2, 3, 4).ok().expect("Failed to construct GiftBox(2, 3, 4)")  );
+        ret.push(GiftBox::new(1, 1, 1).ok().expect("Failed to construct GiftBox(1, 1, 1)"));
+        ret.push(GiftBox::new(2, 3, 4).ok().expect("Failed to construct GiftBox(2, 3, 4)"));
         ret.push(GiftBox::new(1, 1, 10).ok().expect("Failed to construct GiftBox(1, 1, 10)"));
 
         ret
