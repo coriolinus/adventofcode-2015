@@ -103,19 +103,60 @@ pub trait Lightable {
     }
 }
 
+pub struct Through {
+    from: Point,
+    to: Point,
+    cur_x: i32,
+    cur_y: i32,
+    finished: bool,
+}
+
+impl Through {
+    pub fn new(from: Point, to: Point) -> Through {
+        Through {
+            from: from,
+            to: to,
+            cur_x: from.x,
+            cur_y: from.y,
+            finished: false,
+        }
+    }
+}
+
+impl Iterator for Through {
+    type Item = Point;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.finished {
+            return None;
+        }
+
+        let ret = Point::new(self.cur_x, self.cur_y);
+        self.cur_x += 1;
+        if self.cur_x > self.to.x {
+            self.cur_x = self.from.x;
+            self.cur_y += 1;
+            if self.cur_y > self.to.y {
+                self.finished = true;
+            }
+        }
+        Some(ret)
+    }
+}
+
 pub struct Lights<T> {
     lights: HashMap<Point, T>,
 }
 
-impl Lightable for Lights<u8> {
-    type L = u8;
+impl Lightable for Lights<u64> {
+    type L = u64;
 
-    fn new() -> Lights<u8> {
+    fn new() -> Lights<u64> {
         Lights { lights: HashMap::new() }
     }
 
     fn count(&self) -> usize {
-        let s: u8 = self.lights.values().fold(0, |acc, val| acc + val);
+        let s: u64 = self.lights.values().fold(0, |acc, val| acc + val);
         s as usize
     }
 
@@ -139,7 +180,7 @@ impl Lightable for Lights<u8> {
         self.set(point, &(2 + pv));
     }
 
-    fn get(&self, point: Point) -> u8 {
+    fn get(&self, point: Point) -> u64 {
         if let Some(val) = self.lights.get(&point) {
             *val
         } else {
@@ -147,7 +188,7 @@ impl Lightable for Lights<u8> {
         }
     }
 
-    fn set(&mut self, point: Point, v: &u8) {
+    fn set(&mut self, point: Point, v: &u64) {
         self.lights.insert(point, *v);
     }
 }
@@ -210,47 +251,6 @@ fn parse_point(input: Option<&str>) -> Option<Point> {
     None
 }
 
-pub struct Through {
-    from: Point,
-    to: Point,
-    cur_x: i32,
-    cur_y: i32,
-    finished: bool,
-}
-
-impl Through {
-    pub fn new(from: Point, to: Point) -> Through {
-        Through {
-            from: from,
-            to: to,
-            cur_x: from.x,
-            cur_y: from.y,
-            finished: false,
-        }
-    }
-}
-
-impl Iterator for Through {
-    type Item = Point;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.finished {
-            return None;
-        }
-
-        let ret = Point::new(self.cur_x, self.cur_y);
-        self.cur_x += 1;
-        if self.cur_x > self.to.x {
-            self.cur_x = self.from.x;
-            self.cur_y += 1;
-            if self.cur_y > self.to.y {
-                self.finished = true;
-            }
-        }
-        Some(ret)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -274,5 +274,21 @@ mod tests {
 
         lts.parse_line("turn off 499,499 through 500,500");
         assert_eq!(998996, lts.count());
+    }
+
+    /// For example:
+    ///
+    /// - `turn on 0,0 through 0,0` would increase the total brightness by 1.
+    /// - `toggle 0,0 through 999,999` would increase the total brightness by 2000000.
+    #[test]
+    fn test_part_2() {
+        let mut lts: Lights<u64> = Lights::new();
+        assert_eq!(0, lts.count());
+
+        lts.parse_line("turn on 0,0 through 0,0");
+        assert_eq!(1, lts.count());
+
+        lts.parse_line("toggle 0,0 through 999,999");
+        assert_eq!(2000001, lts.count());
     }
 }
