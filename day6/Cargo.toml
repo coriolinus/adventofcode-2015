@@ -13,3 +13,4 @@ path = "src/bin.rs"
 
 [dependencies]
 util = { path = "../util"}
+day3 = { path = "../day3"}

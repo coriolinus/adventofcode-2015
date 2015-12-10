@@ -19,10 +19,10 @@
 //! - `^v^v^v^v^v` delivers a bunch of presents to some very lucky children at only 2 houses.
 
 
-#[derive(PartialEq, Eq, Hash, Default, Clone, Debug)]
+#[derive(PartialEq, Eq, Hash, Default, Copy, Clone, Debug)]
 pub struct Point {
-    x: i32,
-    y: i32,
+    pub x: i32,
+    pub y: i32,
 }
 
 impl Point {
