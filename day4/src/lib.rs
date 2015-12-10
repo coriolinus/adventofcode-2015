@@ -33,11 +33,22 @@ pub struct CoinMiningConfig {
     cpus: usize,
 }
 
+fn overthink_cpus() -> usize {
+    let nc = num_cpus::get();
+    match nc {
+        4 => 2,
+        8 => 4,
+        12 => 6,
+        16 => 8,
+        _ => nc,
+    }
+}
+
 impl Default for CoinMiningConfig {
     fn default() -> CoinMiningConfig {
         CoinMiningConfig {
             leading_zeros: DEFAULT_MIN_ZEROES,
-            cpus: num_cpus::get(),
+            cpus: overthink_cpus(),
         }
     }
 }
@@ -122,6 +133,9 @@ fn mine(secret: &str, leading_zeros: usize, result: Sender<(Sender<u64>, Option<
         // skip all this if we're already receiving errors
         loop {
             let begin_at = next_work_rx.recv().unwrap();
+
+            let mut this_work_result = None;
+
             for current in begin_at..(begin_at + WORK_SIZE) {
 
                 let mix = &(secret.clone().to_string() + &current.to_string());
@@ -130,17 +144,15 @@ fn mine(secret: &str, leading_zeros: usize, result: Sender<(Sender<u64>, Option<
                 let digest = md5.result_str();
                 md5.reset();
 
-                if result.send((next_work_tx.clone(),
-                                {
-                             if digest.chars().take(leading_zeros).all(|c| c == '0') {
-                                 Some(current)
-                             } else {
-                                 None
-                             }
-                         }))
-                         .is_err() {
+                if digest.chars().take(leading_zeros).all(|c| c == '0') {
+                    this_work_result = Some(current);
                     break;
                 }
+            }
+
+            if result.send((next_work_tx.clone(), this_work_result))
+                     .is_err() {
+                break;
             }
         }
     }
