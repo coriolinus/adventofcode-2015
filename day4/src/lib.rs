@@ -138,9 +138,8 @@ fn mine(secret: &str, leading_zeros: usize, result: Sender<(Sender<u64>, Option<
 
             for current in begin_at..(begin_at + WORK_SIZE) {
 
-                let mix = &(secret.clone().to_string() + &current.to_string());
-
-                md5.input_str(mix);
+                md5.input_str(secret);
+                md5.input_str(&current.to_string());
                 let digest = md5.result_str();
                 md5.reset();
 
