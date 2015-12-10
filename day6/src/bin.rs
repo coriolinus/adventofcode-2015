@@ -10,5 +10,10 @@ fn main() {
     let mut lights: Lights<bool> = Lights::new();
     lights.parse_lines(&input);
     let count = lights.count();
-    println!("Lit: {}", count)
+    println!("Lit: {}", count);
+
+    let mut lights: Lights<u64> = Lights::new();
+    lights.parse_lines(&input);
+    let count = lights.count();
+    println!("Brightness: {}", count);
 }
