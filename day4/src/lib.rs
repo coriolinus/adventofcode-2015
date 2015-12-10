@@ -25,14 +25,45 @@ use std::sync::mpsc::{channel, Sender};
 use std::thread;
 
 const WORK_SIZE: u64 = 1024;
-const MIN_ZEROES: usize = 6;
+const DEFAULT_MIN_ZEROES: usize = 5;
 
-pub fn mine_coin(secret: &str) -> Option<u64> {
-    let cpus = num_cpus::get();
-    mine_coin_with_cores(secret, cpus)
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
+pub struct CoinMiningConfig {
+    leading_zeros: usize,
+    cpus: usize,
 }
 
-pub fn mine_coin_with_cores(secret: &str, cpus: usize) -> Option<u64> {
+impl Default for CoinMiningConfig {
+    fn default() -> CoinMiningConfig {
+        CoinMiningConfig {
+            leading_zeros: DEFAULT_MIN_ZEROES,
+            cpus: num_cpus::get(),
+        }
+    }
+}
+
+impl CoinMiningConfig {
+    pub fn new(leading_zeros: usize, cpus: usize) -> CoinMiningConfig {
+        CoinMiningConfig {
+            leading_zeros: leading_zeros,
+            cpus: cpus,
+        }
+    }
+
+    pub fn leading_zeros(&self, leading_zeros: usize) -> CoinMiningConfig {
+        CoinMiningConfig { leading_zeros: leading_zeros, ..*self }
+    }
+
+    pub fn cpus(&self, cpus: usize) -> CoinMiningConfig {
+        CoinMiningConfig { cpus: cpus, ..*self }
+    }
+}
+
+pub fn mine_coin(secret: &str) -> Option<u64> {
+    mine_coin_with_conf(secret, CoinMiningConfig::default())
+}
+
+pub fn mine_coin_with_conf(secret: &str, conf: CoinMiningConfig) -> Option<u64> {
     // set up the results channel
     let (result_tx, result_rx) = channel();
 
@@ -40,11 +71,11 @@ pub fn mine_coin_with_cores(secret: &str, cpus: usize) -> Option<u64> {
     let next_work_iter = (0..).map(|x| x * WORK_SIZE).take_while(|x| x < &std::u64::MAX);
 
     // launch worker threads
-    for _ in 0..cpus {
+    for _ in 0..conf.cpus {
         let secret = secret.to_owned();
         let result_tx = result_tx.clone();
         thread::spawn(move || {
-            mine(&secret, result_tx);
+            mine(&secret, conf.leading_zeros, result_tx);
         });
     }
 
@@ -64,7 +95,7 @@ pub fn mine_coin_with_cores(secret: &str, cpus: usize) -> Option<u64> {
     None
 }
 
-fn mine(secret: &str, result: Sender<(Sender<u64>, Option<u64>)>) {
+fn mine(secret: &str, leading_zeros: usize, result: Sender<(Sender<u64>, Option<u64>)>) {
     let mut md5 = Md5::new();
 
     // create the transmission channel
@@ -85,7 +116,7 @@ fn mine(secret: &str, result: Sender<(Sender<u64>, Option<u64>)>) {
 
                 if result.send((next_work_tx.clone(),
                                 {
-                             if digest.chars().take(MIN_ZEROES).all(|c| c == '0') {
+                             if digest.chars().take(leading_zeros).all(|c| c == '0') {
                                  Some(current)
                              } else {
                                  None
@@ -106,7 +137,11 @@ mod tests {
     // use test::Bencher;
 
     fn test_known(secret: &str, expected: u64) {
-        let coin = mine_coin(secret);
+        test_known_with_conf(secret, expected, CoinMiningConfig::default())
+    }
+
+    fn test_known_with_conf(secret: &str, expected: u64, conf: CoinMiningConfig) {
+        let coin = mine_coin_with_conf(secret, conf);
         match coin {
             Some(val) => assert_eq!(val, expected),
             None => panic!("Failed to find known coin value"),
@@ -118,6 +153,14 @@ mod tests {
     fn test_examples() {
         test_known("abcdef", 609043);
         test_known("pqrstuv", 1048970);
+    }
+
+    #[test]
+    #[ignore]
+    fn test_with_six() {
+        test_known_with_conf("bgvyzdsv",
+                             1038736,
+                             CoinMiningConfig::default().leading_zeros(6));
     }
 
     // Benchmarks disabled due to not compiling in the stable compiler (!)
