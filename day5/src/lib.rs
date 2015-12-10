@@ -89,3 +89,24 @@ pub fn count_nice(lines: &str) -> i32 {
         }
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// - `ugknbfddgicrmopn` is nice because it has at least three vowels (`u...i...o...`), a double
+    ///   letter (`...dd...`), and none of the disallowed substrings.
+    /// - `aaa` is nice because it has at least three vowels and a double letter, even though the
+    ///   letters used by different rules overlap.
+    /// - `jchzalrnumimnmhp` is naughty because it has no double letter.
+    /// - `haegwjzuvuyypxyu` is naughty because it contains the string `xy`.
+    /// - `dvszwmarrgswjxmb` is naughty because it contains only one vowel.
+    #[test]
+    fn test_examples() {
+        assert!(is_nice("ugknbfddgicrmopn"));
+        assert!(is_nice("aaa"));
+        assert!(!is_nice("jchzalrnumimnmhp"));
+        assert!(!is_nice("haegwjzuvuyypxyu"));
+        assert!(!is_nice("dvszwmarrgswjxmb"));
+    }
+}
