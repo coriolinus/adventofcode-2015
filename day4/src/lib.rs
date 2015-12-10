@@ -85,7 +85,23 @@ pub fn mine_coin_with_conf(secret: &str, conf: CoinMiningConfig) -> Option<u64> 
         let (next_work_tx, result) = result_rx.recv().unwrap();
         if let Some(result) = result {
             // now just return our result
-            return Some(result);
+            // return Some(result);
+            //
+            // The above doesn't just work in all cases. It often does, but occasionally a thread
+            // with a mucn higher unit of work will return successfully before the thread with
+            // the correct answer.
+            //
+            // The solution to this implies a slowdown, unfortunately. We have to collect up all
+            // the threads' results and find which of them is minimal, then return that.
+            let mut results = vec![Some(result)];
+
+            // collect all remaining threads
+            for _ in 1..conf.cpus {
+                let (_, result) = result_rx.recv().unwrap();
+                results.push(result);
+            }
+
+            return results.iter().filter(|&x| x.is_some()).map(|&x| x.unwrap()).min();
         } else {
             // send the next unit of work
             // panicing if the receiver isn't around to take it
@@ -150,8 +166,13 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn test_examples() {
+    fn test_first_example() {
         test_known("abcdef", 609043);
+    }
+
+    #[test]
+    #[ignore]
+    fn test_second_example() {
         test_known("pqrstuv", 1048970);
     }
 
