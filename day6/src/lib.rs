@@ -44,6 +44,14 @@ impl Lights {
         self.lights.values().filter(|&x| *x).count()
     }
 
+    pub fn parse_lines(lines: &str) -> Lights {
+        let mut lts = Lights::new();
+        for line in lines.split('\n') {
+            lts.parse_line(line);
+        }
+        lts
+    }
+
     pub fn get(&self, point: Point) -> bool {
         *self.lights.get(&point).unwrap_or(&false)
     }
@@ -62,7 +70,7 @@ impl Lights {
         self.lights.insert(point, target);
     }
 
-    pub fn parse(&mut self, instr: &str) -> bool {
+    pub fn parse_line(&mut self, instr: &str) -> bool {
         let instr = instr.trim().to_lowercase();
         if instr.is_empty() {
             return false;
@@ -172,5 +180,31 @@ impl Iterator for Through {
             }
         }
         Some(ret)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// For example:
+    ///
+    /// - `turn on 0,0 through 999,999` would turn on (or leave on) every light.
+    /// - `toggle 0,0 through 999,0` would toggle the first line of 1000 lights, turning off the
+    ///   ones that were on, and turning on the ones that were off.
+    /// - `turn off 499,499 through 500,500` would turn off (or leave off) the middle four lights.
+    #[test]
+    fn test_examples() {
+        let mut lts = Lights::new();
+        assert_eq!(0, lts.count());
+
+        lts.parse_line("turn on 0,0 through 999,999");
+        assert_eq!(1000000, lts.count());
+
+        lts.parse_line("toggle 0,0 through 999,0");
+        assert_eq!(999000, lts.count());
+
+        lts.parse_line("turn off 499,499 through 500,500");
+        assert_eq!(998996, lts.count());
     }
 }
