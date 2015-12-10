@@ -21,21 +21,71 @@
 //! - `haegwjzuvuyypxyu` is naughty because it contains the string `xy`.
 //! - `dvszwmarrgswjxmb` is naughty because it contains only one vowel.
 
+use std::collections::HashSet;
+
+pub fn is_nice(input: &str) -> bool {
+    let input = input.trim().to_string().to_lowercase();
+    if input.len() == 0 {
+        return false;
+    }
+
+    let mut chars = input.chars();
+    let first_char = chars.next(); // advance to the 2nd char
+
+    let char_pairs = input.chars().zip(chars);
+
+    let vowels_set = get_vowels();
+    let naughty_set = get_naughty_pairs();
+
+    let mut vowels = 0;
+    if vowels_set.contains(&first_char.unwrap()) {
+        vowels += 1;
+    }
+
+    let mut has_double = false;
+    let mut has_naughty = false;
+
+    for (first, second) in char_pairs {
+        if vowels_set.contains(&second) {
+            vowels += 1;
+        }
+        if first == second {
+            has_double = true;
+        }
+        if !has_naughty && naughty_set.contains(&(first, second)) {
+            has_naughty = true;
+        }
+    }
+
+    has_double && !has_naughty && vowels >= 3
+}
+
+fn get_vowels() -> HashSet<char> {
+    let mut set = HashSet::new();
+    set.insert('a');
+    set.insert('e');
+    set.insert('i');
+    set.insert('o');
+    set.insert('u');
+    set
+}
+
+fn get_naughty_pairs() -> HashSet<(char, char)> {
+    let mut set = HashSet::new();
+    set.insert(('a', 'b'));
+    set.insert(('c', 'd'));
+    set.insert(('p', 'q'));
+    set.insert(('x', 'y'));
+    set
+}
+
 pub fn count_nice(lines: &str) -> i32 {
     lines.split("\n").fold(0, |acc, line| {
         acc +
-        if is_nice(line.trim()) {
+        if is_nice(line) {
             1
         } else {
             0
         }
     })
 }
-
-pub fn is_nice(input: &str) -> bool {
-    let input = input.trim();
-    unimplemented!();
-}
-
-#[test]
-fn it_works() {}
