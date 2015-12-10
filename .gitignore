@@ -15,3 +15,6 @@
 # Though we're building executables, they're thin wrappers around the libraries
 # which really form the core of the code. Reinstated!
 Cargo.lock
+
+# We really don't need to be storing these inputs, do we?
+input.txt
