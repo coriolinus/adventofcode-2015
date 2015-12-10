@@ -29,48 +29,27 @@ use day3lib::Point;
 
 use std::collections::HashMap;
 
-pub struct Lights {
-    lights: HashMap<Point, bool>,
-}
+pub trait Lightable {
+    type L: Default + Copy;
 
-impl Lights {
-    pub fn new() -> Lights {
-        let hm = HashMap::new();
+    fn new() -> Self;
 
-        Lights { lights: hm }
-    }
+    fn count(&self) -> usize;
+    fn turn_on(&mut self, point: Point);
+    fn turn_off(&mut self, point: Point);
+    fn toggle(&mut self, point: Point);
 
-    pub fn count(&self) -> usize {
-        self.lights.values().filter(|&x| *x).count()
-    }
+    fn get(&self, point: Point) -> Self::L;
+    fn set(&mut self, point: Point, v: &Self::L);
 
-    pub fn parse_lines(lines: &str) -> Lights {
-        let mut lts = Lights::new();
+    fn parse_lines(&mut self, lines: &str) {
         for line in lines.split('\n') {
-            lts.parse_line(line);
+            self.parse_line(line);
         }
-        lts
+
     }
 
-    pub fn get(&self, point: Point) -> bool {
-        *self.lights.get(&point).unwrap_or(&false)
-    }
-
-    pub fn turn_on(&mut self, point: Point) {
-        self.lights.insert(point, true);
-    }
-
-    pub fn turn_off(&mut self, point: Point) {
-        self.lights.insert(point, false);
-    }
-
-
-    pub fn toggle(&mut self, point: Point) {
-        let target = !self.get(point);
-        self.lights.insert(point, target);
-    }
-
-    pub fn parse_line(&mut self, instr: &str) -> bool {
+    fn parse_line(&mut self, instr: &str) -> bool {
         let instr = instr.trim().to_lowercase();
         if instr.is_empty() {
             return false;
@@ -121,6 +100,50 @@ impl Lights {
         }
 
         true
+    }
+}
+
+pub struct Lights<T> {
+    lights: HashMap<Point, T>,
+}
+
+impl Lightable for Lights<bool> {
+    type L = bool;
+
+    fn new() -> Lights<bool> {
+        let hm = HashMap::new();
+
+        Lights { lights: hm }
+    }
+
+    fn count(&self) -> usize {
+        self.lights.values().filter(|&x| *x).count()
+    }
+
+    fn turn_on(&mut self, point: Point) {
+        self.lights.insert(point, true);
+    }
+
+    fn turn_off(&mut self, point: Point) {
+        self.lights.insert(point, false);
+    }
+
+
+    fn toggle(&mut self, point: Point) {
+        let target = !self.get(point);
+        self.lights.insert(point, target);
+    }
+
+    fn get(&self, point: Point) -> bool {
+        if let Some(val) = self.lights.get(&point) {
+            *val
+        } else {
+            false
+        }
+    }
+
+    fn set(&mut self, point: Point, v: &bool) {
+        self.lights.insert(point, *v);
     }
 }
 
