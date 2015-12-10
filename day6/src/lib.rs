@@ -107,6 +107,51 @@ pub struct Lights<T> {
     lights: HashMap<Point, T>,
 }
 
+impl Lightable for Lights<u8> {
+    type L = u8;
+
+    fn new() -> Lights<u8> {
+        Lights { lights: HashMap::new() }
+    }
+
+    fn count(&self) -> usize {
+        let s: u8 = self.lights.values().fold(0, |acc, val| acc + val);
+        s as usize
+    }
+
+    fn turn_on(&mut self, point: Point) {
+        let pv = self.get(point);
+        self.set(point, &(1 + pv));
+    }
+
+    fn turn_off(&mut self, point: Point) {
+        let mut pv = self.get(point);
+        pv = if pv > 0 {
+            pv - 1
+        } else {
+            0
+        };
+        self.set(point, &pv);
+    }
+
+    fn toggle(&mut self, point: Point) {
+        let pv = self.get(point);
+        self.set(point, &(2 + pv));
+    }
+
+    fn get(&self, point: Point) -> u8 {
+        if let Some(val) = self.lights.get(&point) {
+            *val
+        } else {
+            0
+        }
+    }
+
+    fn set(&mut self, point: Point, v: &u8) {
+        self.lights.insert(point, *v);
+    }
+}
+
 impl Lightable for Lights<bool> {
     type L = bool;
 
@@ -218,7 +263,7 @@ mod tests {
     /// - `turn off 499,499 through 500,500` would turn off (or leave off) the middle four lights.
     #[test]
     fn test_examples() {
-        let mut lts = Lights::new();
+        let mut lts: Lights<bool> = Lights::new();
         assert_eq!(0, lts.count());
 
         lts.parse_line("turn on 0,0 through 999,999");
