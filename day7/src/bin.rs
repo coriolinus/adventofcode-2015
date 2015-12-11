@@ -16,7 +16,7 @@ fn main() {
             // eliminate whatever 'b' was before
             new_wires = new_wires.iter()
                                  .filter(|&x| x.get_name() != "b")
-                                 .map(|ref x| x.to_owned().to_owned())
+                                 .map(|x| x.to_owned())
                                  .collect();
 
             // insert a new 'b' wire containing this computed value
