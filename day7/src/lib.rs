@@ -30,7 +30,7 @@ extern crate lazy_static;
 pub mod wire;
 pub mod evaluator;
 pub mod instruction;
-mod parse;
+pub mod parse;
 mod evaluable;
 mod name;
 
