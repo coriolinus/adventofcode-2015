@@ -34,7 +34,12 @@ impl Evaluator {
                 self.sort_by_determinability(&mut named_wires, wire);
             }
         }
-        unimplemented!();
+
+        assert!(named_wires.values().all(|&(_, o)| o.is_some()));
+        let mut sorted: Vec<_> = named_wires.values().collect();
+        sorted.sort_by(|&&(_, a), &&(_, b)| a.unwrap().cmp(&b.unwrap()));
+        let sorted = sorted.iter().map(|&&(ref wire, _)| wire.to_owned()).collect();
+        self.wires = sorted;
     }
 
     /// Recursively determine how many instructions must be computed before this one can be resolved,
