@@ -7,6 +7,7 @@ use super::instruction::Instruction;
 use super::parse::Evaluable;
 
 use std::collections::HashMap;
+use std::cmp::max;
 
 pub struct Evaluator {
     wires: Vec<Wire>,
@@ -45,7 +46,7 @@ impl Evaluator {
     /// - Unary instructions compute exactly like normal assignments
     /// - Binary instructions will insert `1+<max(x's #, y's #)>` because they may be resolved as
     ///   soon as both of their predicates have been resolved
-    fn sort_by_determinability(&self, named_wires: &mut NamedWiresType, wire: &Wire) {
+    fn sort_by_determinability(&self, named_wires: &mut NamedWiresType, wire: &Wire) -> usize {
 
         let my_sort_order = match wire.get_instruction() {
             &Instruction::Store(ref ev) => self.unary_trace(named_wires, ev),
@@ -58,10 +59,26 @@ impl Evaluator {
 
         named_wires.insert(wire.get_name().to_string(),
                            (wire.clone(), Some(my_sort_order)));
+
+        my_sort_order
     }
 
     fn unary_trace(&self, named_wires: &mut NamedWiresType, ev: &Evaluable) -> usize {
-        unimplemented!();
+        match *ev {
+            Evaluable::Num(_) => 0,
+            Evaluable::Name(ref name) => {
+                1 +
+                {
+                    let name = name.get();
+                    // we're willing to panic if we can't find our name in the wires we know of
+                    let val = &named_wires.get(name).unwrap().to_owned();
+                    match val {
+                        &(_, Some(n)) => n,
+                        &(ref nwire, None) => self.sort_by_determinability(named_wires, &nwire),
+                    }
+                }
+            }
+        }
     }
 
     fn binary_trace(&self,
@@ -69,6 +86,8 @@ impl Evaluator {
                     x: &Evaluable,
                     y: &Evaluable)
                     -> usize {
-        unimplemented!();
+        1 +
+        max(self.unary_trace(named_wires, x),
+            self.unary_trace(named_wires, y))
     }
 }
