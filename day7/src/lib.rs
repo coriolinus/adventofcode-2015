@@ -47,6 +47,9 @@ use std::collections::HashMap;
 pub fn parse_wires(lines: &str) -> Option<Vec<Wire>> {
     let mut ret: Vec<Wire> = Vec::new();
     for line in lines.split('\n') {
+        if line.is_empty() {
+            continue; // blank lines are acceptable in programs now, I guess
+        }
         let wire = Wire::parse(line);
         if wire.is_none() {
             return None;
@@ -69,7 +72,7 @@ pub fn evaluate(wires: &Vec<Wire>) -> HashMap<String, u16> {
 #[cfg(test)]
 mod test {
     use std::collections::HashMap;
-    
+
     use super::evaluate;
     use super::wire::Wire;
     use super::parse::Parseable;
@@ -147,4 +150,14 @@ mod test {
     //     let s = v.as_mut_slice();
     //     thread_rng().shuffle(s);
     // }
+
+    #[test]
+    fn test_parse_instruction_with_long_evaluables() {
+        Wire::parse("sAnTa AND SayS -> HoHoHo").unwrap();
+    }
+
+    #[test]
+    fn test_parse_instruction_with_whitespace() {
+        Wire::parse("   x AND y -> z\r").unwrap();
+    }
 }
