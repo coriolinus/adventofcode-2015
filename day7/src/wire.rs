@@ -2,25 +2,19 @@
 //! Named variable
 
 use super::parse::Parseable;
-use super::parse::Name;
+use super::name::Name;
 
 use super::instruction::Instruction;
 
 #[derive(Clone)]
 pub struct Wire {
-    name: Name,
-    value: Option<u16>,
-
+    pub name: Name,
     instruction: Instruction,
 }
 
 impl Wire {
     pub fn get_name(&self) -> &str {
         self.name.get()
-    }
-
-    pub fn get_value(&self) -> Option<u16> {
-        self.value
     }
 
     pub fn get_instruction(&self) -> &Instruction {
@@ -68,7 +62,6 @@ impl Parseable for Wire {
 
         Some(Wire {
             name: name,
-            value: None,
             instruction: inst,
         })
     }

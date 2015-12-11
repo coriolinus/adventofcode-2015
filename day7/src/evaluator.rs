@@ -4,7 +4,8 @@
 
 use super::wire::Wire;
 use super::instruction::Instruction;
-use super::parse::Evaluable;
+use super::name::Name;
+use super::evaluable::Evaluable;
 
 use std::collections::HashMap;
 use std::cmp::max;
@@ -16,12 +17,14 @@ pub struct Evaluator {
 type NamedWiresType = HashMap<String, (Wire, Option<usize>)>;
 
 impl Evaluator {
-    pub fn new(wires: Vec<Wire>) -> Evaluator {
-        Evaluator { wires: wires }
+    pub fn new(wires: &Vec<Wire>) -> Evaluator {
+        let mut e = Evaluator { wires: wires.to_owned() };
+        e.sort();
+        e
     }
 
     /// Sort the owned wires by which ones depend on which others to evaluate
-    pub fn sort(&mut self) {
+    fn sort(&mut self) {
         // &str -> (&Wire, Option<usize>)
         let mut named_wires: NamedWiresType = HashMap::new();
         for wire in &self.wires {
@@ -96,5 +99,25 @@ impl Evaluator {
         1 +
         max(self.unary_trace(named_wires, x),
             self.unary_trace(named_wires, y))
+    }
+
+    pub fn evaluate(&self) -> HashMap<Name, u16> {
+        let mut symbols = HashMap::new();
+
+        for wire in &self.wires {
+            let inst_value = {
+                match wire.get_instruction() {
+                    &Instruction::Store(ref ev) => ev.get(&symbols),
+                    &Instruction::Not(ref ev) => !ev.get(&symbols),
+                    &Instruction::And{ ref x,  ref y} => x.get(&symbols) & y.get(&symbols),
+                    &Instruction::Or{  ref x,  ref y} => x.get(&symbols) | y.get(&symbols),
+                    &Instruction::Lshift{ ref x,  ref y} => x.get(&symbols) << y.get(&symbols),
+                    &Instruction::Rshift{ ref x,  ref y} => x.get(&symbols) >> y.get(&symbols),
+                }
+            };
+            symbols.insert(wire.name.to_owned(), inst_value);
+        }
+
+        symbols
     }
 }

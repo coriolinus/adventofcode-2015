@@ -27,14 +27,23 @@
 #[macro_use]
 extern crate lazy_static;
 
-mod parse;
-mod instruction;
 pub mod wire;
 pub mod evaluator;
+pub mod instruction;
+mod parse;
+mod evaluable;
+mod name;
 
 use wire::Wire;
 use parse::Parseable;
+use evaluator::Evaluator;
 
+use std::collections::HashMap;
+
+/// `None` if not all lines could be parsed, or `Some(Vec<Wire>)`
+///
+/// We assume that if a line fails to read, the whole program is likely to fail, so we don't
+/// bother trying.
 pub fn parse_wires(lines: &str) -> Option<Vec<Wire>> {
     let mut ret: Vec<Wire> = Vec::new();
     for line in lines.split('\n') {
@@ -45,4 +54,19 @@ pub fn parse_wires(lines: &str) -> Option<Vec<Wire>> {
         ret.push(wire.unwrap());
     }
     Some(ret)
+}
+
+pub fn evaluate(wires: &Vec<Wire>) -> HashMap<String, u16> {
+    let ev = Evaluator::new(wires);
+    let mut ret: HashMap<String, u16> = HashMap::new();
+    for (name, val) in ev.evaluate() {
+        let n = name.get().to_string();
+        ret.insert(n, val);
+    }
+    ret
+}
+
+#[cfg(test)]
+mod test {
+    
 }

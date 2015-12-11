@@ -2,7 +2,7 @@
 //! What do do in this mini-computer
 
 
-use super::parse::Evaluable;
+use super::evaluable::Evaluable;
 use super::parse::Parseable;
 
 #[derive(Clone)]
