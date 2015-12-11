@@ -68,5 +68,68 @@ pub fn evaluate(wires: &Vec<Wire>) -> HashMap<String, u16> {
 
 #[cfg(test)]
 mod test {
-    
+    use std::collections::HashMap;
+
+    use super::evaluate;
+    use super::wire::Wire;
+    use super::parse::Parseable;
+
+    /// For example, here is a simple circuit:
+    ///
+    /// ```notrust
+    /// 123 -> x
+    /// 456 -> y
+    /// x AND y -> d
+    /// x OR y -> e
+    /// x LSHIFT 2 -> f
+    /// y RSHIFT 2 -> g
+    /// NOT x -> h
+    /// NOT y -> i
+    /// ```
+    fn get_example() -> Vec<Wire> {
+        let mut v = Vec::new();
+
+        v.push(Wire::parse("123 -> x").unwrap());
+        v.push(Wire::parse("456 -> y").unwrap());
+        v.push(Wire::parse("x AND y -> d").unwrap());
+        v.push(Wire::parse("x OR y -> e").unwrap());
+        v.push(Wire::parse("x LSHIFT 2 -> f").unwrap());
+        v.push(Wire::parse("y RSHIFT 2 -> g").unwrap());
+        v.push(Wire::parse("NOT x -> h").unwrap());
+        v.push(Wire::parse("NOT y -> i").unwrap());
+
+        v
+    }
+
+    /// After the example is run, these are the signals on the wires:
+    ///
+    /// ```notrust
+    /// d: 72
+    /// e: 507
+    /// f: 492
+    /// g: 114
+    /// h: 65412
+    /// i: 65079
+    /// x: 123
+    /// y: 456
+    /// ```
+    fn get_example_expected() -> HashMap<String, u16> {
+        let mut h = HashMap::new();
+
+        h.insert("d".to_string(), 72);
+        h.insert("e".to_string(), 507);
+        h.insert("f".to_string(), 492);
+        h.insert("g".to_string(), 114);
+        h.insert("h".to_string(), 65412);
+        h.insert("i".to_string(), 65079);
+        h.insert("x".to_string(), 123);
+        h.insert("y".to_string(), 456);
+
+        h
+    }
+
+    #[test]
+    fn test_example() {
+        assert_eq!(evaluate(&get_example()), get_example_expected());
+    }
 }

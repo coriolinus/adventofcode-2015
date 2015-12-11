@@ -52,8 +52,10 @@ impl Instruction {
         match &self {
             &&Instruction::Store(_) => InstructionType::Nonary,
             &&Instruction::Not(_) => InstructionType::Unary,
+            // Pretty sure this is a rust bug, but the below won't code without having actual
+            // variable names to.
             &&Instruction::And{ref x,ref y} => InstructionType::Binary,
-            &&Instruction::Or{ref x,ref y} => InstructionType::Binary,
+            &&Instruction::Or{ref x,ref  y} => InstructionType::Binary,
             &&Instruction::Lshift{ref x,ref y} => InstructionType::Binary,
             &&Instruction::Rshift{ref x,ref y} => InstructionType::Binary,
         }
