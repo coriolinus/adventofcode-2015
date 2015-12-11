@@ -14,22 +14,10 @@ pub enum Instruction {
     Not(Evaluable),
 
     // Binary infix
-    And {
-        x: Evaluable,
-        y: Evaluable,
-    },
-    Or {
-        x: Evaluable,
-        y: Evaluable,
-    },
-    Lshift {
-        x: Evaluable,
-        y: Evaluable,
-    },
-    Rshift {
-        x: Evaluable,
-        y: Evaluable,
-    },
+    And(Evaluable, Evaluable),
+    Or(Evaluable, Evaluable),
+    Lshift(Evaluable, Evaluable),
+    Rshift(Evaluable, Evaluable),
 }
 
 pub enum InstructionType {
@@ -52,12 +40,10 @@ impl Instruction {
         match &self {
             &&Instruction::Store(_) => InstructionType::Nonary,
             &&Instruction::Not(_) => InstructionType::Unary,
-            // Pretty sure this is a rust bug, but the below won't code without having actual
-            // variable names to.
-            &&Instruction::And{ref x,ref y} => InstructionType::Binary,
-            &&Instruction::Or{ref x,ref  y} => InstructionType::Binary,
-            &&Instruction::Lshift{ref x,ref y} => InstructionType::Binary,
-            &&Instruction::Rshift{ref x,ref y} => InstructionType::Binary,
+            &&Instruction::And(_, _) => InstructionType::Binary,
+            &&Instruction::Or(_, _) => InstructionType::Binary,
+            &&Instruction::Lshift(_, _) => InstructionType::Binary,
+            &&Instruction::Rshift(_, _) => InstructionType::Binary,
         }
     }
 }
@@ -103,10 +89,10 @@ fn parse_binary_instruction(x: &str, inst: &str, y: &str) -> Option<Instruction>
     let y = y.unwrap();
 
     match inst {
-        "and" => Some(Instruction::And { x: x, y: y }),
-        "or" => Some(Instruction::Or { x: x, y: y }),
-        "lshift" => Some(Instruction::Lshift { x: x, y: y }),
-        "rshift" => Some(Instruction::Rshift { x: x, y: y }),
+        "and" => Some(Instruction::And(x, y)),
+        "or" => Some(Instruction::Or(x, y)),
+        "lshift" => Some(Instruction::Lshift(x, y)),
+        "rshift" => Some(Instruction::Rshift(x, y)),
         _ => None,
     }
 }

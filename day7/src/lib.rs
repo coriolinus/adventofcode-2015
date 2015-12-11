@@ -69,7 +69,7 @@ pub fn evaluate(wires: &Vec<Wire>) -> HashMap<String, u16> {
 #[cfg(test)]
 mod test {
     use std::collections::HashMap;
-
+    
     use super::evaluate;
     use super::wire::Wire;
     use super::parse::Parseable;
@@ -132,4 +132,19 @@ mod test {
     fn test_example() {
         assert_eq!(evaluate(&get_example()), get_example_expected());
     }
+
+    #[test]
+    fn test_reversed_example() {
+        let mut v = get_example();
+        v.reverse();
+        assert_eq!(evaluate(&v), get_example_expected());
+    }
+
+    // Possibly I could put that after a feature gate, but it's unnecessary right now.
+    // #[test]
+    // fn test_randomized_example() {
+    //     let mut v = get_example();
+    //     let s = v.as_mut_slice();
+    //     thread_rng().shuffle(s);
+    // }
 }

@@ -61,10 +61,10 @@ impl Evaluator {
         let my_sort_order = match wire.get_instruction() {
             &Instruction::Store(ref ev) => self.unary_trace(named_wires, ev),
             &Instruction::Not(ref ev) => self.unary_trace(named_wires, ev),
-            &Instruction::And{ref x, ref y} => self.binary_trace(named_wires, x, y),
-            &Instruction::Or{ ref x, ref y} => self.binary_trace(named_wires, x, y),
-            &Instruction::Lshift{ref x, ref y} => self.binary_trace(named_wires, x, y),
-            &Instruction::Rshift{ref x, ref y} => self.binary_trace(named_wires, x, y),
+            &Instruction::And(ref x, ref y) => self.binary_trace(named_wires, x, y),
+            &Instruction::Or(ref x, ref y) => self.binary_trace(named_wires, x, y),
+            &Instruction::Lshift(ref x, ref y) => self.binary_trace(named_wires, x, y),
+            &Instruction::Rshift(ref x, ref y) => self.binary_trace(named_wires, x, y),
         };
 
         named_wires.insert(wire.get_name().to_string(),
@@ -109,10 +109,10 @@ impl Evaluator {
                 match wire.get_instruction() {
                     &Instruction::Store(ref ev) => ev.get(&symbols),
                     &Instruction::Not(ref ev) => !ev.get(&symbols),
-                    &Instruction::And{ ref x,  ref y} => x.get(&symbols) & y.get(&symbols),
-                    &Instruction::Or{  ref x,  ref y} => x.get(&symbols) | y.get(&symbols),
-                    &Instruction::Lshift{ ref x,  ref y} => x.get(&symbols) << y.get(&symbols),
-                    &Instruction::Rshift{ ref x,  ref y} => x.get(&symbols) >> y.get(&symbols),
+                    &Instruction::And(ref x, ref y) => x.get(&symbols) & y.get(&symbols),
+                    &Instruction::Or(ref x, ref y) => x.get(&symbols) | y.get(&symbols),
+                    &Instruction::Lshift(ref x, ref y) => x.get(&symbols) << y.get(&symbols),
+                    &Instruction::Rshift(ref x, ref y) => x.get(&symbols) >> y.get(&symbols),
                 }
             };
             symbols.insert(wire.name.to_owned(), inst_value);
