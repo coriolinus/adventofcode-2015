@@ -28,9 +28,21 @@
 extern crate lazy_static;
 
 mod parse;
-
 mod instruction;
-use instruction::Instruction;
+pub mod wire;
+pub mod evaluator;
 
-mod wire;
 use wire::Wire;
+use parse::Parseable;
+
+pub fn parse_wires(lines: &str) -> Option<Vec<Wire>> {
+    let mut ret: Vec<Wire> = Vec::new();
+    for line in lines.split('\n') {
+        let wire = Wire::parse(line);
+        if wire.is_none() {
+            return None;
+        }
+        ret.push(wire.unwrap());
+    }
+    Some(ret)
+}

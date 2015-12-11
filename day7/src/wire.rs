@@ -5,13 +5,27 @@ use super::parse::Parseable;
 use super::parse::Name;
 
 use super::instruction::Instruction;
-use super::instruction::parse_instruction;
 
+#[derive(Clone)]
 pub struct Wire {
     name: Name,
     value: Option<u16>,
 
     instruction: Instruction,
+}
+
+impl Wire {
+    pub fn get_name(&self) -> &str {
+        self.name.get()
+    }
+
+    pub fn get_value(&self) -> Option<u16> {
+        self.value
+    }
+
+    pub fn get_instruction(&self) -> &Instruction {
+        &self.instruction
+    }
 }
 
 impl Parseable for Wire {
@@ -46,7 +60,7 @@ impl Parseable for Wire {
         // remember, it's backwards because it was a right iterator
         inst.reverse();
 
-        let inst = parse_instruction(&inst);
+        let inst = Instruction::parse(&inst);
         if inst.is_none() {
             return None;
         }

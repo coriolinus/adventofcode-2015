@@ -5,7 +5,14 @@
 use super::parse::Evaluable;
 use super::parse::Parseable;
 
+#[derive(Clone)]
 pub enum Instruction {
+    // Nonary (implied)
+    Store(Evaluable),
+
+    // Unary prefix
+    Not(Evaluable),
+
     // Binary infix
     And {
         x: Evaluable,
@@ -23,20 +30,33 @@ pub enum Instruction {
         x: Evaluable,
         y: Evaluable,
     },
-
-    // Unary prefix
-    Not(Evaluable),
-
-    // Nonary (implied)
-    Store(Evaluable),
 }
 
-pub fn parse_instruction(inst: &Vec<&str>) -> Option<Instruction> {
-    match inst.len() {
-        1 => parse_nonary_instruction(inst[0]), // nonary instruction (direct assignment)
-        2 => parse_unary_instruction(inst[0], inst[1]), // unary instruction
-        3 => parse_binary_instruction(inst[0], inst[1], inst[2]), // binary instruction
-        _ => None,
+pub enum InstructionType {
+    Nonary,
+    Unary,
+    Binary,
+}
+
+impl Instruction {
+    pub fn parse(inst: &Vec<&str>) -> Option<Instruction> {
+        match inst.len() {
+            1 => parse_nonary_instruction(inst[0]), // nonary instruction (direct assignment)
+            2 => parse_unary_instruction(inst[0], inst[1]), // unary instruction
+            3 => parse_binary_instruction(inst[0], inst[1], inst[2]), // binary instruction
+            _ => None,
+        }
+    }
+
+    pub fn get_type(&self) -> InstructionType {
+        match &self {
+            &&Instruction::Store(_) => InstructionType::Nonary,
+            &&Instruction::Not(_) => InstructionType::Unary,
+            &&Instruction::And{ref x,ref y} => InstructionType::Binary,
+            &&Instruction::Or{ref x,ref y} => InstructionType::Binary,
+            &&Instruction::Lshift{ref x,ref y} => InstructionType::Binary,
+            &&Instruction::Rshift{ref x,ref y} => InstructionType::Binary,
+        }
     }
 }
 

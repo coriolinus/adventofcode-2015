@@ -44,6 +44,7 @@ pub trait Parseable {
     fn parse(input: &str) -> Option<Self::P>;
 }
 
+#[derive(Clone)]
 pub struct Name {
     val: String,
 }
@@ -65,6 +66,7 @@ impl Parseable for Name {
     }
 }
 
+#[derive(Clone)]
 pub enum Evaluable {
     Num(u16),
     Name(Name),
