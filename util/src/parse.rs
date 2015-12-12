@@ -1,4 +1,8 @@
 //! Simple parser for relatively fixed parsing tasks.
+//!
+//! For dirt-simple parsing, you can go straight to `Parser::parse()`. For more complex
+//! settings, the best point of entry is to config a `ParseOptions` builder and then call its
+//! `.parse()` method.
 
 use std::collections::{HashMap, HashSet};
 
@@ -38,6 +42,10 @@ pub fn is_just_numbers(s: &str) -> bool {
     true
 }
 
+/// A parser following English reading order is a Right parser.
+///
+/// Note: A Left parser reverses the normal sequence of tokens. That is, if you are parsing
+/// strings like `x -> y b` to the Left, the arrow is now token 2.
 #[derive(Clone)]
 pub enum ParseDirection {
     Left,
@@ -100,6 +108,9 @@ impl ParseOptions {
     ///
     /// `fixed_tokens` should contain only the pair `1 : "->"`.
     /// This indicates that the second token must be an arrow for this parse to be valid.
+    ///
+    /// Note that the fixed tokens are *not* included in `ParseResult::tokens`. A successful parse
+    /// of the first example string would result in `ParseResult::tokens == Vec!["x", "y", "b"]`.
     pub fn fixed_tokens(&self, ft: HashMap<usize, String>) -> ParseOptions {
         ParseOptions { fixed_tokens: ft, ..self.to_owned() }
     }
@@ -156,6 +167,10 @@ pub enum ParseError {
 pub struct Parser;
 
 impl Parser {
+    /// Parse a string using `ParseOptions::default()`.
+    ///
+    /// Roughly equivalent to `input.to_lowercase().split(' ').collect()`, but it returns
+    /// an `Err` when the input string is empty.
     pub fn parse(input: &str) -> Result<ParseResult, ParseError> {
         Parser::parse_with_options(input, ParseOptions::default())
     }
@@ -196,7 +211,7 @@ impl Parser {
 
         for (i, tok) in tokens.iter().enumerate() {
             // have consumed enough tokens
-            if options.consume_only.is_some() && i > options.consume_only.unwrap() {
+            if options.consume_only.is_some() && i >= options.consume_only.unwrap() {
                 pr.rest = Some(tokens.iter().skip(i).map(|&s| s.to_string()).collect());
                 return Ok(pr);
             }
@@ -214,5 +229,46 @@ impl Parser {
             pr.tokens.push(tok.to_string());
         }
         Ok(pr)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+    use super::{ParseOptions, ParseDirection};
+
+    #[test]
+    fn test_parse_wires() {
+        let wires = vec!["123 -> x", "NOT x -> h", "x LSHIFT 2 -> f"];
+        let results = vec![vec!["x"], vec!["h"], vec!["f"]];
+        let rests = vec![vec!["123"], vec!["x", "not"], vec!["2", "lshift", "x"]];
+
+        let results: Vec<Vec<String>> = results.iter()
+                                               .map(|v| v.iter().map(|&s| s.to_string()).collect())
+                                               .collect();
+        let rests: Vec<Vec<String>> = rests.iter()
+                                           .map(|v| v.iter().map(|&s| s.to_string()).collect())
+                                           .collect();
+
+        let expected = results.iter().zip(rests);
+
+        let po = ParseOptions::default()
+                     .direction(ParseDirection::Left)
+                     .require_at_least(Some(3))
+                     .require_fewer_than(Some(6))
+                     .consume_only(Some(2))
+                     .fixed_tokens({
+                         let mut h = HashMap::new();
+                         h.insert(1, "->".to_string());
+                         h
+                     });
+
+        for (wire, (result, rest)) in wires.iter().zip(expected) {
+            let pr = po.parse(wire);
+            assert!(pr.is_ok()); //these should all be parseable
+            let pr = pr.ok().unwrap();
+            assert_eq!(&pr.tokens, result);
+            assert_eq!(pr.rest, Some(rest));
+        }
     }
 }
