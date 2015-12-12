@@ -24,6 +24,8 @@ lazy_static! {
     };
 }
 
+
+/// True if the input is nothing but lowercase ASCII letters.
 pub fn is_just_letters(s: &str) -> bool {
     for c in s.chars() {
         if !LETTERS.contains(&c) {
@@ -33,6 +35,7 @@ pub fn is_just_letters(s: &str) -> bool {
     true
 }
 
+/// True if the input is nothing but ASCII digits.
 pub fn is_just_numbers(s: &str) -> bool {
     for c in s.chars() {
         if !NUMBERS.contains(&c) {
@@ -85,14 +88,14 @@ impl ParseOptions {
     /// Note: A Left parser reverses the normal sequence of tokens. That is, if you are parsing
     /// strings like `x -> y b` to the Left, the arrow is now token 2.
     ///
-    /// Default: Right
+    /// Default: `Right`
     pub fn direction(&self, pd: ParseDirection) -> ParseOptions {
         ParseOptions { direction: pd, ..self.to_owned() }
     }
 
     /// This is the substr searched for to tokenize the input.
     ///
-    /// Default: " "
+    /// Default: `" "`
     pub fn tokenizer_split(&self, ts: &str) -> ParseOptions {
         ParseOptions { tokenizer_split: ts.to_string(), ..self.to_owned() }
     }
@@ -111,8 +114,17 @@ impl ParseOptions {
     ///
     /// Note that the fixed tokens are *not* included in `ParseResult::tokens`. A successful parse
     /// of the first example string would result in `ParseResult::tokens == Vec!["x", "y", "b"]`.
+    ///
+    /// Default: `HashMap::new()`
     pub fn fixed_tokens(&self, ft: HashMap<usize, String>) -> ParseOptions {
         ParseOptions { fixed_tokens: ft, ..self.to_owned() }
+    }
+
+    /// Convert every token to lowercase when true.
+    ///
+    /// Default: `true`.
+    pub fn force_lowercase(&self, fl: bool) -> ParseOptions {
+        ParseOptions { force_lowercase: fl, ..self.to_owned() }
     }
 
     /// Consume only `N` tokens if it is not `None`.
@@ -121,7 +133,7 @@ impl ParseOptions {
     ///
     /// The rest of the tokens are returned with the key `rest`.
     ///
-    /// Default: None.
+    /// Default: `None`.
     pub fn consume_only(&self, n: Option<usize>) -> ParseOptions {
         ParseOptions { consume_only: n, ..self.to_owned() }
     }
@@ -130,7 +142,7 @@ impl ParseOptions {
     /// This includes fixed tokens: if you want to parse `x -> y b` but not `c -> d`,
     /// this should be `4`.
     ///
-    /// Default: None.
+    /// Default: `None`.
     pub fn require_at_least(&self, n: Option<usize>) -> ParseOptions {
         ParseOptions { require_at_least: n, ..self.to_owned() }
     }
@@ -139,7 +151,7 @@ impl ParseOptions {
     /// Fail fast if there exist `N` or more tokens.
     /// Useful to guarantee correct inputs when not using `consume_only`.
     ///
-    /// Default: None.
+    /// Default: `None`.
     pub fn require_fewer_than(&self, n: Option<usize>) -> ParseOptions {
         ParseOptions { require_fewer_than: n, ..self.to_owned() }
     }
