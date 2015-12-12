@@ -1,5 +1,10 @@
+#[macro_use]
+extern crate lazy_static;
+
 use std::io;
 use std::io::prelude::*;
+
+pub mod parse;
 
 pub fn get_input(prompt: &str, wait_for_eof: bool) -> io::Result<String> {
     print!("{}", prompt);
