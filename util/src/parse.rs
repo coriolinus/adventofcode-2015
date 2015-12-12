@@ -235,7 +235,7 @@ impl Parser {
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
-    use super::{ParseOptions, ParseDirection};
+    use super::{ParseOptions, ParseDirection, ParseError, Parser};
 
     #[test]
     fn test_parse_wires() {
@@ -269,6 +269,48 @@ mod tests {
             let pr = pr.ok().unwrap();
             assert_eq!(&pr.tokens, result);
             assert_eq!(pr.rest, Some(rest));
+        }
+    }
+
+    #[test]
+    fn test_parsing_empty_string_fails() {
+        let pr = Parser::parse("");
+        match pr {
+            Err(ParseError::InputIsEmpty) => {}
+            _ => panic!(),
+        }
+    }
+
+    #[test]
+    fn test_parse_too_many_fails() {
+        let pr = ParseOptions::default().require_fewer_than(Some(2)).parse("foo bar");
+        match pr {
+            Err(ParseError::TooManyTokens) => {}
+            _ => panic!(),
+        }
+    }
+
+    #[test]
+    fn test_parse_too_few_fails() {
+        let pr = ParseOptions::default().require_at_least(Some(2)).parse("foo");
+        match pr {
+            Err(ParseError::TooFewTokens) => {}
+            _ => panic!(),
+        }
+    }
+
+    #[test]
+    fn test_parse_fixed_token_not_found() {
+        let pr = ParseOptions::default()
+                     .fixed_tokens({
+                         let mut h = HashMap::new();
+                         h.insert(0, "->".to_string());
+                         h
+                     })
+                     .parse("<-");
+        match pr {
+            Err(ParseError::TokenMismatchOnFixedKey) => {}
+            _ => panic!(),
         }
     }
 }
