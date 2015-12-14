@@ -9,6 +9,7 @@
 //! he can travel to achieve this?
 
 use std::collections::{HashMap, HashSet};
+use std::cmp::Ordering;
 
 extern crate util;
 use util::parse::Parser;
@@ -74,12 +75,12 @@ impl Routes {
         self.places.insert(to.clone());
     }
 
-    pub fn find_shortest(&self) -> Route {
+    pub fn find_extreme(&self, order: Ordering, default_dist: usize) -> Route {
         let mut places = self.places.iter().collect::<Vec<_>>();
 
         let mut ret = Route {
             stops: Vec::new(),
-            dist: usize::max_value(),
+            dist: default_dist,
         };
         heap_recursive(&mut places, |ordering| {
             // ordering = [&String]
@@ -92,13 +93,21 @@ impl Routes {
                                            })
                                            .fold(0, std::ops::Add::add);
 
-            if this_dist < ret.dist {
+            if this_dist.cmp(&ret.dist) == order {
                 ret.stops = ordering.iter().map(|&s| s.clone()).collect::<Vec<_>>();
                 ret.dist = this_dist;
             }
         });
 
         ret
+    }
+
+    pub fn find_shortest(&self) -> Route {
+        self.find_extreme(Ordering::Less, usize::max_value())
+    }
+
+    pub fn find_longest(&self) -> Route {
+        self.find_extreme(Ordering::Greater, 0)
     }
 }
 
@@ -129,7 +138,7 @@ mod test {
     ///
     /// What is the distance of the shortest route?
     #[test]
-    fn test_example() {
+    fn test_example_shortest() {
         let lines = "London to Dublin = 464\nLondon to Belfast = 518\nDublin to Belfast = 141";
         let mut expected_route = vec!["London", "Dublin", "Belfast"]
                                      .iter()
@@ -145,6 +154,35 @@ mod test {
         let fwd = shortest.stops == expected_route;
         expected_route.reverse();
         let rev = shortest.stops == expected_route;
+
+        assert!(fwd || rev);
+    }
+
+    /// The next year, just to show off, Santa decides to take the route with the longest distance
+    /// instead.
+    ///
+    /// He can still start and end at any two (different) locations he wants, and he still must
+    /// visit each location exactly once.
+    ///
+    /// For example, given the distances above, the longest route would be `982` via (for example)
+    /// `Dublin -> London -> Belfast`.
+    #[test]
+    fn test_example_longest() {
+        let lines = "London to Dublin = 464\nLondon to Belfast = 518\nDublin to Belfast = 141";
+        let mut expected_route = vec!["Dublin", "London", "Belfast"]
+                                     .iter()
+                                     .map(|s| s.to_string())
+                                     .collect::<Vec<_>>();
+
+        let routes = Routes::parse_routes(lines);
+        let longest = routes.find_longest();
+
+        println!("Longest route: {:?}", longest);
+
+        assert_eq!(982, longest.dist);
+        let fwd = longest.stops == expected_route;
+        expected_route.reverse();
+        let rev = longest.stops == expected_route;
 
         assert!(fwd || rev);
     }
