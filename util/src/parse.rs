@@ -1,7 +1,8 @@
 //! Simple parser for relatively fixed parsing tasks.
 //!
-//! For dirt-simple parsing, you can go straight to `Parser::parse()`. For more complex
-//! settings, the best point of entry is to config a `ParseOptions` builder and then call its
+//! For dirt-simple parsing, you can go straight to `parse()`. For more complex
+//! settings, the best point of entry is to config a `Parser` by calling the appropriate builder
+//! functions and then call its
 //! `.parse()` method.
 
 use std::collections::{HashMap, HashSet};
@@ -56,7 +57,7 @@ pub enum ParseDirection {
 }
 
 #[derive(Clone)]
-pub struct ParseOptions {
+pub struct Parser {
     direction: ParseDirection,
     tokenizer_split: String,
     fixed_tokens: HashMap<usize, String>,
@@ -66,9 +67,9 @@ pub struct ParseOptions {
     require_fewer_than: Option<usize>,
 }
 
-impl Default for ParseOptions {
-    fn default() -> ParseOptions {
-        ParseOptions {
+impl Default for Parser {
+    fn default() -> Parser {
+        Parser {
             direction: ParseDirection::Right,
             tokenizer_split: " ".to_string(),
             fixed_tokens: HashMap::new(),
@@ -80,7 +81,7 @@ impl Default for ParseOptions {
     }
 }
 
-impl ParseOptions {
+impl Parser {
     /// The direction toward which parsing should be attempted.
     ///
     /// A parser following English reading order is a Right parser.
@@ -89,15 +90,15 @@ impl ParseOptions {
     /// strings like `x -> y b` to the Left, the arrow is now token 2.
     ///
     /// Default: `Right`
-    pub fn direction(&self, pd: ParseDirection) -> ParseOptions {
-        ParseOptions { direction: pd, ..self.to_owned() }
+    pub fn direction(&self, pd: ParseDirection) -> Parser {
+        Parser { direction: pd, ..self.to_owned() }
     }
 
     /// This is the substr searched for to tokenize the input.
     ///
     /// Default: `" "`
-    pub fn tokenizer_split(&self, ts: &str) -> ParseOptions {
-        ParseOptions { tokenizer_split: ts.to_string(), ..self.to_owned() }
+    pub fn tokenizer_split(&self, ts: &str) -> Parser {
+        Parser { tokenizer_split: ts.to_string(), ..self.to_owned() }
     }
 
     /// These tokens must be present at the indicated position or the parse will fail.
@@ -116,15 +117,15 @@ impl ParseOptions {
     /// of the first example string would result in `ParseResult::tokens == Vec!["x", "y", "b"]`.
     ///
     /// Default: `HashMap::new()`
-    pub fn fixed_tokens(&self, ft: HashMap<usize, String>) -> ParseOptions {
-        ParseOptions { fixed_tokens: ft, ..self.to_owned() }
+    pub fn fixed_tokens(&self, ft: HashMap<usize, String>) -> Parser {
+        Parser { fixed_tokens: ft, ..self.to_owned() }
     }
 
     /// Convert every token to lowercase when true.
     ///
     /// Default: `true`.
-    pub fn force_lowercase(&self, fl: bool) -> ParseOptions {
-        ParseOptions { force_lowercase: fl, ..self.to_owned() }
+    pub fn force_lowercase(&self, fl: bool) -> Parser {
+        Parser { force_lowercase: fl, ..self.to_owned() }
     }
 
     /// Consume only `N` tokens if it is not `None`.
@@ -134,8 +135,8 @@ impl ParseOptions {
     /// The rest of the tokens are returned with the key `rest`.
     ///
     /// Default: `None`.
-    pub fn consume_only(&self, n: Option<usize>) -> ParseOptions {
-        ParseOptions { consume_only: n, ..self.to_owned() }
+    pub fn consume_only(&self, n: Option<usize>) -> Parser {
+        Parser { consume_only: n, ..self.to_owned() }
     }
 
     /// Require at least `N` tokens if it is not `None`.
@@ -143,8 +144,8 @@ impl ParseOptions {
     /// this should be `4`.
     ///
     /// Default: `None`.
-    pub fn require_at_least(&self, n: Option<usize>) -> ParseOptions {
-        ParseOptions { require_at_least: n, ..self.to_owned() }
+    pub fn require_at_least(&self, n: Option<usize>) -> Parser {
+        Parser { require_at_least: n, ..self.to_owned() }
     }
 
     /// Require fewer than `N` tokens if it is not `None`.
@@ -152,13 +153,62 @@ impl ParseOptions {
     /// Useful to guarantee correct inputs when not using `consume_only`.
     ///
     /// Default: `None`.
-    pub fn require_fewer_than(&self, n: Option<usize>) -> ParseOptions {
-        ParseOptions { require_fewer_than: n, ..self.to_owned() }
+    pub fn require_fewer_than(&self, n: Option<usize>) -> Parser {
+        Parser { require_fewer_than: n, ..self.to_owned() }
     }
 
     /// Parse a string using these options
     pub fn parse(&self, input: &str) -> Result<ParseResult, ParseError> {
-        Parser::parse_with_options(input, self.to_owned())
+        let input = input.trim();
+        if input.is_empty() {
+            return Err(ParseError::InputIsEmpty);
+        }
+
+        let input = if self.force_lowercase {
+            input.to_lowercase() // automatically converts to String
+        } else {
+            input.to_string()
+        };
+
+        let mut tokens: Vec<&str> = input.split(&self.tokenizer_split).collect();
+        match self.direction {
+            ParseDirection::Left => tokens.reverse(),
+            _ => {}
+        }
+
+        if self.require_at_least.is_some() && tokens.len() < self.require_at_least.unwrap() {
+            return Err(ParseError::TooFewTokens);
+        }
+
+        if self.require_fewer_than.is_some() && tokens.len() >= self.require_fewer_than.unwrap() {
+            return Err(ParseError::TooManyTokens);
+        }
+
+        let mut pr = ParseResult {
+            tokens: Vec::new(),
+            rest: None,
+        };
+
+        for (i, tok) in tokens.iter().enumerate() {
+            // have consumed enough tokens
+            if self.consume_only.is_some() && i >= self.consume_only.unwrap() {
+                pr.rest = Some(tokens.iter().skip(i).map(|&s| s.to_string()).collect());
+                return Ok(pr);
+            }
+            // check fixed tokens
+            if self.fixed_tokens.contains_key(&i) {
+                if tok == self.fixed_tokens.get(&i).unwrap() {
+                    // discard it
+                    continue;
+                } else {
+                    // token mismatch on fixed key
+                    return Err(ParseError::TokenMismatchOnFixedKey);
+                }
+            }
+            // we must be ready to add the current token and move on!
+            pr.tokens.push(tok.to_string());
+        }
+        Ok(pr)
     }
 }
 
@@ -175,79 +225,19 @@ pub enum ParseError {
     TokenMismatchOnFixedKey,
 }
 
-#[derive(Default)]
-pub struct Parser;
-
-impl Parser {
-    /// Parse a string using `ParseOptions::default()`.
-    ///
-    /// Roughly equivalent to `input.to_lowercase().split(' ').collect()`, but it returns
-    /// an `Err` when the input string is empty.
-    pub fn parse(input: &str) -> Result<ParseResult, ParseError> {
-        Parser::parse_with_options(input, ParseOptions::default())
-    }
-
-    pub fn parse_with_options(input: &str,
-                              options: ParseOptions)
-                              -> Result<ParseResult, ParseError> {
-        let input = input.trim();
-        if input.is_empty() {
-            return Err(ParseError::InputIsEmpty);
-        }
-
-        let input = if options.force_lowercase {
-            input.to_lowercase() // automatically converts to String
-        } else {
-            input.to_string()
-        };
-
-        let mut tokens: Vec<&str> = input.split(&options.tokenizer_split).collect();
-        match options.direction {
-            ParseDirection::Left => tokens.reverse(),
-            _ => {}
-        }
-
-        if options.require_at_least.is_some() && tokens.len() < options.require_at_least.unwrap() {
-            return Err(ParseError::TooFewTokens);
-        }
-
-        if options.require_fewer_than.is_some() &&
-           tokens.len() >= options.require_fewer_than.unwrap() {
-            return Err(ParseError::TooManyTokens);
-        }
-
-        let mut pr = ParseResult {
-            tokens: Vec::new(),
-            rest: None,
-        };
-
-        for (i, tok) in tokens.iter().enumerate() {
-            // have consumed enough tokens
-            if options.consume_only.is_some() && i >= options.consume_only.unwrap() {
-                pr.rest = Some(tokens.iter().skip(i).map(|&s| s.to_string()).collect());
-                return Ok(pr);
-            }
-            // check fixed tokens
-            if options.fixed_tokens.contains_key(&i) {
-                if tok == options.fixed_tokens.get(&i).unwrap() {
-                    // discard it
-                    continue;
-                } else {
-                    // token mismatch on fixed key
-                    return Err(ParseError::TokenMismatchOnFixedKey);
-                }
-            }
-            // we must be ready to add the current token and move on!
-            pr.tokens.push(tok.to_string());
-        }
-        Ok(pr)
-    }
+/// Parse a string using `Parser::default()`.
+///
+/// Roughly equivalent to `input.to_lowercase().split(' ').collect()`, but it returns
+/// an `Err` when the input string is empty.
+pub fn parse(input: &str) -> Result<ParseResult, ParseError> {
+    Parser::default().parse(input)
 }
+
 
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
-    use super::{ParseOptions, ParseDirection, ParseError, Parser};
+    use super::{parse, ParseDirection, ParseError, Parser};
 
     #[test]
     fn test_parse_wires() {
@@ -264,7 +254,7 @@ mod tests {
 
         let expected = results.iter().zip(rests);
 
-        let po = ParseOptions::default()
+        let po = Parser::default()
                      .direction(ParseDirection::Left)
                      .require_at_least(Some(3))
                      .require_fewer_than(Some(6))
@@ -286,7 +276,7 @@ mod tests {
 
     #[test]
     fn test_parsing_empty_string_fails() {
-        let pr = Parser::parse("");
+        let pr = parse("");
         match pr {
             Err(ParseError::InputIsEmpty) => {}
             _ => panic!(),
@@ -295,7 +285,7 @@ mod tests {
 
     #[test]
     fn test_parse_too_many_fails() {
-        let pr = ParseOptions::default().require_fewer_than(Some(2)).parse("foo bar");
+        let pr = Parser::default().require_fewer_than(Some(2)).parse("foo bar");
         match pr {
             Err(ParseError::TooManyTokens) => {}
             _ => panic!(),
@@ -304,7 +294,7 @@ mod tests {
 
     #[test]
     fn test_parse_too_few_fails() {
-        let pr = ParseOptions::default().require_at_least(Some(2)).parse("foo");
+        let pr = Parser::default().require_at_least(Some(2)).parse("foo");
         match pr {
             Err(ParseError::TooFewTokens) => {}
             _ => panic!(),
@@ -313,7 +303,7 @@ mod tests {
 
     #[test]
     fn test_parse_fixed_token_not_found() {
-        let pr = ParseOptions::default()
+        let pr = Parser::default()
                      .fixed_tokens({
                          let mut h = HashMap::new();
                          h.insert(0, "->".to_string());
