@@ -8,10 +8,110 @@
 //! locations he wants, but he must visit each location exactly once. What is the shortest distance
 //! he can travel to achieve this?
 
+use std::collections::{HashMap, HashSet};
 
+extern crate util;
+use util::parse::Parser;
+
+extern crate permutohedron;
+use permutohedron::heap_recursive;
+
+// we're going to do this the quick, dumb way.
+type DistMap = HashMap<(String, String), usize>;
+
+pub struct Routes {
+    dist_map: DistMap,
+    places: HashSet<String>,
+}
+
+impl Routes {
+    fn new() -> Routes {
+        Routes {
+            dist_map: DistMap::new(),
+            places: HashSet::new(),
+        }
+    }
+
+    pub fn parse_routes(lines: &str) -> Routes {
+        // create parser
+        let parser = Parser::default()
+                         .force_lowercase(false)
+                         .require_at_least(Some(5))
+                         .require_fewer_than(Some(6))
+                         .fixed_tokens({
+                             let mut h = HashMap::new();
+                             h.insert(1, "to".to_string());
+                             h.insert(3, "=".to_string());
+                             h
+                         });
+
+        let mut o = Routes::new();
+
+        for line in lines.split('\n') {
+            let line = line.trim();
+            if line.is_empty() {
+                continue;
+            }
+
+            if let Ok(v) = parser.parse(line) {
+                let ref from = v.tokens[0];
+                let ref to = v.tokens[1];
+                let ref dist = v.tokens[2];
+
+                if let Ok(dist) = usize::from_str_radix(&dist, 10) {
+                    o.add(from.clone(), to.clone(), dist);
+                }
+            }
+        }
+
+        o
+    }
+
+    pub fn add(&mut self, from: String, to: String, dist: usize) {
+        self.dist_map.insert((from.clone(), to.clone()), dist);
+        self.dist_map.insert((to.clone(), from.clone()), dist);
+        self.places.insert(from.clone());
+        self.places.insert(to.clone());
+    }
+
+    pub fn find_shortest(&self) -> Route {
+        let mut places = self.places.iter().collect::<Vec<_>>();
+
+        let mut ret = Route {
+            stops: Vec::new(),
+            dist: usize::max_value(),
+        };
+        heap_recursive(&mut places, |ordering| {
+            // ordering = [&String]
+            let this_dist: usize = ordering.windows(2)
+                                           .map(|window| (window[0], window[1]))
+                                           .map(|(from, to)| {
+                                               self.dist_map
+                                                   .get(&(from.clone(), to.clone()))
+                                                   .unwrap()
+                                           })
+                                           .fold(0, std::ops::Add::add);
+
+            if this_dist < ret.dist {
+                ret.stops = ordering.iter().map(|&s| s.clone()).collect::<Vec<_>>();
+                ret.dist = this_dist;
+            }
+        });
+
+        ret
+    }
+}
+
+#[derive(Debug)]
+pub struct Route {
+    pub stops: Vec<String>,
+    pub dist: usize,
+}
 
 #[cfg(test)]
 mod test {
+    use super::Routes;
+
     /// For example, given the following distances:
     ///
     /// London to Dublin = 464
@@ -29,5 +129,23 @@ mod test {
     ///
     /// What is the distance of the shortest route?
     #[test]
-    fn test_example() {}
+    fn test_example() {
+        let lines = "London to Dublin = 464\nLondon to Belfast = 518\nDublin to Belfast = 141";
+        let mut expected_route = vec!["London", "Dublin", "Belfast"]
+                                     .iter()
+                                     .map(|s| s.to_string())
+                                     .collect::<Vec<_>>();
+
+        let routes = Routes::parse_routes(lines);
+        let shortest = routes.find_shortest();
+
+        println!("Shortest route: {:?}", shortest);
+
+        assert_eq!(605, shortest.dist);
+        let fwd = shortest.stops == expected_route;
+        expected_route.reverse();
+        let rev = shortest.stops == expected_route;
+
+        assert!(fwd || rev);
+    }
 }
