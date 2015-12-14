@@ -61,9 +61,66 @@ fn increment_char(old: char) -> Option<char> {
     allowed_chs.next()
 }
 
+fn contains_forbidden(s: &str) -> bool {
+    for ch in s.chars() {
+        for f in vec!['i', 'o', 'l'] {
+            if ch == f {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+fn contains_straight(s: &str) -> bool {
+    if s.len() < 3 {
+        return false;
+    }
+
+    let triple_it = s.chars()
+                     .zip(s.chars().skip(1).zip(s.chars().skip(2)))
+                     .map(|(x, (y, z))| (x, y, z));
+
+    for (x, y, z) in triple_it {
+        if let Some(x1) = increment_char(x) {
+            if let Some(x2) = increment_char(x1) {
+                if y == x1 && z == x2 {
+                    return true;
+                }
+            }
+        }
+    }
+
+    false
+}
+
+fn contains_pairs(s: &str) -> bool {
+    if s.len() < 4 {
+        return false;
+    }
+
+    let double_it = s.chars().zip(s.chars().skip(1)).enumerate();
+
+    for (i, (a, b)) in double_it {
+        if a == b {
+            for (y, z) in s.chars().zip(s.chars().skip(1)).skip(i + 2) {
+                if y == z && a != y {
+                    return true;
+                }
+            }
+        }
+    }
+
+    false
+}
+
+pub fn meets_requirements(s: &str) -> bool {
+    !contains_forbidden(s) && contains_straight(s) && contains_pairs(s)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::increment;
+    use super::{increment, meets_requirements};
 
     #[test]
     fn test_increment() {
@@ -72,6 +129,16 @@ mod tests {
 
         for (from, to) in from.iter().zip(to) {
             assert_eq!(increment(from), to.to_string());
+        }
+    }
+
+    #[test]
+    fn test_meets_requirements() {
+        let from = vec!["hijklmmn", "abbceffg", "abbcegjk", "abcdffaa", "ghjaabcc"];
+        let to = vec![false, false, false, true, true];
+
+        for (from, to) in from.iter().zip(to) {
+            assert_eq!(meets_requirements(from), to);
         }
     }
 }
