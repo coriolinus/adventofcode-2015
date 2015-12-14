@@ -53,8 +53,13 @@ fn increment_char(old: char) -> Option<char> {
         } else {
             // we've run out of characters
             // input wasn't in ALLOWED_LETTERS
-            println!("Out of chars; returning None");
-            return None;
+            // so we do this by hand
+            return match old {
+                'i' => Some('j'),
+                'l' => Some('m'),
+                'o' => Some('p'),
+                _ => None,
+            };
         }
     }
     // None if `old` was `'z'`
