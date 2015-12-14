@@ -44,7 +44,11 @@ pub fn increment(old: &str) -> String {
 }
 
 fn increment_char(old: char) -> Option<char> {
-    let mut allowed_chs = ALLOWED_LETTERS.chars();
+    increment_char_given_alphabet(old, ALLOWED_LETTERS)
+}
+
+fn increment_char_given_alphabet(old: char, alphabet: &str) -> Option<char> {
+    let mut allowed_chs = alphabet.chars();
     loop {
         if let Some(next) = allowed_chs.next() {
             if next == old {
@@ -87,8 +91,8 @@ fn contains_straight(s: &str) -> bool {
                      .map(|(x, (y, z))| (x, y, z));
 
     for (x, y, z) in triple_it {
-        if let Some(x1) = increment_char(x) {
-            if let Some(x2) = increment_char(x1) {
+        if let Some(x1) = increment_char_given_alphabet(x, "abcdefghijklmnopqrstuvwxyz") {
+            if let Some(x2) = increment_char_given_alphabet(x1, "abcdefghijklmnopqrstuvwxyz") {
                 if y == x1 && z == x2 {
                     return true;
                 }
@@ -123,9 +127,18 @@ pub fn meets_requirements(s: &str) -> bool {
     !contains_forbidden(s) && contains_straight(s) && contains_pairs(s)
 }
 
+pub fn next_pw(s: &str) -> String {
+    let mut new = s.to_string();
+    while !meets_requirements(&new) {
+        new = increment(&new);
+    }
+    new
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{increment, meets_requirements};
+    use super::{increment, meets_requirements, next_pw};
+    use super::contains_straight;
 
     #[test]
     fn test_increment() {
@@ -144,6 +157,27 @@ mod tests {
 
         for (from, to) in from.iter().zip(to) {
             assert_eq!(meets_requirements(from), to);
+        }
+    }
+
+    #[test]
+    fn test_next_pw() {
+        let from = vec!["abcdefgh", "ghijklmn"];
+        let to = vec!["abcdffaa", "ghjaabcc"];
+
+        for (from, to) in from.iter().zip(to) {
+            assert_eq!(next_pw(from), to);
+        }
+    }
+
+    #[test]
+    fn test_contains_straight() {
+        let from = vec!["hijklmmn", "abbceffg", "abbcegjk", "abcdffaa", "ghjaabcc", "ghjaaabb"];
+        let to = vec![true, false, false, true, true, false];
+
+        for (from, to) in from.iter().zip(to) {
+            println!("Trying: {}", from);
+            assert_eq!(contains_straight(from), to);
         }
     }
 }
