@@ -20,3 +20,58 @@
 //!   other characters and are therefore confusing.
 //! - Passwords must contain at least two different, non-overlapping pairs of letters, like `aa`,
 //!   `bb`, or `zz`.
+
+const ALLOWED_LETTERS: &'static str = "abcdefghjkmnpqrstuvwxyz";
+const FIRST_ALLOWED_LETTER: char = 'a';
+
+pub fn increment(old: &str) -> String {
+    if old.is_empty() {
+        return FIRST_ALLOWED_LETTER.to_string(); // handles the recursive case
+    }
+
+    let mut ret = old.to_string();
+    let last_char = ret.pop().unwrap();
+
+    if let Some(new_last_char) = increment_char(last_char) {
+        ret.push(new_last_char);
+        return ret;
+    } else {
+        // Can't get the new last char, so increment the whole string
+        ret = increment(&ret);
+        ret.push(FIRST_ALLOWED_LETTER);
+        return ret;
+    }
+}
+
+fn increment_char(old: char) -> Option<char> {
+    let mut allowed_chs = ALLOWED_LETTERS.chars();
+    loop {
+        if let Some(next) = allowed_chs.next() {
+            if next == old {
+                break;
+            }
+        } else {
+            // we've run out of characters
+            // input wasn't in ALLOWED_LETTERS
+            println!("Out of chars; returning None");
+            return None;
+        }
+    }
+    // None if `old` was `'z'`
+    allowed_chs.next()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::increment;
+
+    #[test]
+    fn test_increment() {
+        let from = vec!["", "a", "h", "k", "n", "z", "xy", "xz", "ya", "zz"];
+        let to = vec!["a", "b", "j", "m", "p", "aa", "xz", "ya", "yb", "aaa"];
+
+        for (from, to) in from.iter().zip(to) {
+            assert_eq!(increment(from), to.to_string());
+        }
+    }
+}
