@@ -124,13 +124,16 @@ fn contains_pairs(s: &str) -> bool {
 }
 
 pub fn meets_requirements(s: &str) -> bool {
-    !contains_forbidden(s) && contains_straight(s) && contains_pairs(s)
+    s.len() == 8 && !contains_forbidden(s) && contains_straight(s) && contains_pairs(s)
 }
 
 pub fn next_pw(s: &str) -> String {
-    let mut new = s.to_string();
+    let mut new = increment(s);
     while !meets_requirements(&new) {
         new = increment(&new);
+        if new.len() > 8 {
+            return String::from("");
+        }
     }
     new
 }
@@ -142,8 +145,8 @@ mod tests {
 
     #[test]
     fn test_increment() {
-        let from = vec!["", "a", "h", "k", "n", "z", "xy", "xz", "ya", "zz"];
-        let to = vec!["a", "b", "j", "m", "p", "aa", "xz", "ya", "yb", "aaa"];
+        let from = vec!["", "a", "h", "k", "n", "z", "xy", "xz", "ya", "zz", "hepxcrrq"];
+        let to = vec!["a", "b", "j", "m", "p", "aa", "xz", "ya", "yb", "aaa", "hepxcrrr"];
 
         for (from, to) in from.iter().zip(to) {
             assert_eq!(increment(from), to.to_string());
@@ -178,6 +181,34 @@ mod tests {
         for (from, to) in from.iter().zip(to) {
             println!("Trying: {}", from);
             assert_eq!(contains_straight(from), to);
+        }
+    }
+
+    #[test]
+    fn test_high_increments() {
+        let mut last5 = Vec::new();
+
+        let mut cur = String::from("hepxcrrq");
+
+        for _ in 0..100000 {
+            last5.push(cur.clone());
+            while last5.len() > 5 {
+                last5.remove(0);
+            }
+
+            if cur.len() > 8 {
+                break;
+            }
+
+            cur = increment(&cur);
+        }
+
+        for (i, l) in last5.iter().enumerate() {
+            println!("last5[-{}]: {}", 5 - i, l);
+        }
+
+        if cur.len() > 8 {
+            panic!();
         }
     }
 }
