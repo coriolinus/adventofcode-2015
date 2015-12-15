@@ -157,6 +157,68 @@ impl Parser {
         Parser { require_fewer_than: n, ..self.to_owned() }
     }
 
+    /// Parse a string using these options, if you only care about a few of the tokens.
+    ///
+    /// `names` maps token position to a key in the output mapping.
+    ///
+    /// Returns a mapping of the assigned name to the token found for every item in `names`.
+    ///
+    /// Implies `self.require_at_least >= n`, where `n` is the largest item in `names.keys()`.
+    ///
+    /// # Example
+    /// ```
+    /// # use std::collections::HashMap;
+    /// use util::parse::Parser;
+    ///
+    /// let input = "Dancer can fly 37 km/s for 1 seconds, but then must rest for 36 seconds.";
+    /// let parser = Parser::default().force_lowercase(false);
+    /// let result = parser.parse_named({
+    ///     let mut h = HashMap::new();
+    ///     h.insert(0, "name".to_string());
+    ///     h.insert(3, "speed".to_string());
+    ///     h.insert(6, "fly".to_string());
+    ///     h.insert(13, "rest".to_string());
+    ///     h
+    /// }, input).unwrap();
+    ///
+    /// let name = result.get(&"name".to_string()).unwrap();
+    /// let speed = result.get(&"speed".to_string()).unwrap();
+    /// let fly = result.get(&"fly".to_string()).unwrap();
+    /// let rest = result.get(&"rest".to_string()).unwrap();
+    ///
+    /// assert_eq!(name, "Dancer");
+    /// assert_eq!(speed, "37");
+    /// assert_eq!(fly, "1");
+    /// assert_eq!(rest, "36");
+    /// ```
+    pub fn parse_named(&self,
+                       names: HashMap<usize, String>,
+                       input: &str)
+                       -> Result<HashMap<String, String>, ParseError> {
+        if names.is_empty() {
+            return Err(ParseError::InputIsEmpty);
+        }
+
+        let max_key = names.keys().max().unwrap();
+        let p = if self.require_at_least.is_some() && &self.require_at_least.unwrap() >= max_key {
+            self.clone()
+        } else {
+            self.require_at_least(Some(*max_key))
+        };
+
+        match p.parse(input) {
+            Ok(v) => {
+                let mut ret = HashMap::new();
+                for (position, key) in &names {
+                    let ref val = v.tokens[*position];
+                    ret.insert(key.clone(), val.clone());
+                }
+                Ok(ret)
+            }
+            Err(e) => Err(e),
+        }
+    }
+
     /// Parse a string using these options
     pub fn parse(&self, input: &str) -> Result<ParseResult, ParseError> {
         let input = input.trim();
@@ -218,6 +280,7 @@ pub struct ParseResult {
     pub rest: Option<Vec<String>>,
 }
 
+#[derive(Debug)]
 pub enum ParseError {
     InputIsEmpty,
     TooFewTokens,
