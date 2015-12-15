@@ -19,7 +19,7 @@ use util::parse::Parser;
 
 pub type Relationships = HashMap<(String, String), i32>;
 
-pub fn parse_neighbors(lines: &str) -> (Relationships, HashSet<String>) {
+pub fn parse_neighbors(lines: &str) -> (HashSet<String>, Relationships) {
     // create parser
     let parser = Parser::default()
                      .force_lowercase(false)
@@ -68,10 +68,12 @@ pub fn parse_neighbors(lines: &str) -> (Relationships, HashSet<String>) {
         }
     }
 
-    (r, p)
+    (p, r)
 }
 
-fn evaluate_ordering(people: &Vec<String>, rels: &Relationships) -> (i32, HashMap<String, i32>) {
+pub fn evaluate_ordering(people: &Vec<String>,
+                         rels: &Relationships)
+                         -> (i32, HashMap<String, i32>) {
     let mut total_happiness = 0;
     let mut personal_happiness = HashMap::new();
 
@@ -98,7 +100,7 @@ fn evaluate_ordering(people: &Vec<String>, rels: &Relationships) -> (i32, HashMa
     (total_happiness, personal_happiness)
 }
 
-pub fn find_best_ordering(people: HashSet<String>, rels: Relationships) -> Vec<String> {
+pub fn find_best_ordering(people: &HashSet<String>, rels: &Relationships) -> Vec<String> {
     let mut places = people.iter().collect::<Vec<_>>();
     let mut ret = Vec::new();
 
