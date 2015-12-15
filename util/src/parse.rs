@@ -56,6 +56,7 @@ pub enum ParseDirection {
     Right,
 }
 
+/// Line-based parser for relatively fixed inputs.
 #[derive(Clone)]
 pub struct Parser {
     direction: ParseDirection,

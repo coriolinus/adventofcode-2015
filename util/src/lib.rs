@@ -27,5 +27,7 @@ pub fn get_line_input(prompt: &str) -> io::Result<String> {
 }
 
 pub fn get_multiline_input(prompt: &str) -> io::Result<String> {
-    get_input(prompt, true)
+    let mut p = prompt.to_string();
+    p.push('\n');
+    get_input(&p, true)
 }
