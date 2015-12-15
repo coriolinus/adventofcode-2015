@@ -281,7 +281,7 @@ pub struct ParseResult {
     pub rest: Option<Vec<String>>,
 }
 
-#[derive(Debug)]
+#[derive(PartialEq, Eq, Debug)]
 pub enum ParseError {
     InputIsEmpty,
     TooFewTokens,
