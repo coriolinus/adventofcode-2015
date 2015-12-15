@@ -36,14 +36,14 @@ use util::parse::{Parser, ParseError};
 /// Both Flying and Resting keep track of how many seconds remain in that state.
 /// When that number reaches `0`, the state immediately switches to the other state at its maximum
 /// duration.
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub enum ReindeerState {
     Flying(u32),
     Resting(u32),
 }
 use ReindeerState::{Flying, Resting};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Reindeer {
     pub name: String,
     /// km/s
@@ -159,9 +159,20 @@ impl Reindeer {
         };
     }
 
+    pub fn reset(&mut self) {
+        self.distance = 0;
+        self.state = Flying(self.fly_duration);
+    }
+
     pub fn tick_all(rs: &mut Vec<Reindeer>) {
         for r in rs {
             r.tick();
+        }
+    }
+
+    pub fn reset_all(rs: &mut Vec<Reindeer>) {
+        for r in rs {
+            r.reset();
         }
     }
 
@@ -188,6 +199,49 @@ impl Reindeer {
         }
 
         ret
+    }
+
+    pub fn new_race_tick(rs: &mut Vec<Reindeer>, pts: Vec<u32>) -> Vec<u32> {
+        Reindeer::tick_all(rs);
+        let f = Reindeer::farthest(&rs);
+
+        if f.is_none() {
+            return Vec::new();
+        }
+
+        let f = f.unwrap();
+
+        let mut npts = Vec::new();
+
+        for (r, p) in rs.iter().zip(pts) {
+            let np = if r.distance == f.distance {
+                p + 1
+            } else {
+                p
+            };
+            npts.push(np);
+        }
+
+        npts
+    }
+
+    pub fn new_race(rs: &mut Vec<Reindeer>, seconds: usize) -> Option<(Reindeer, u32)> {
+        if rs.len() == 0 {
+            return None;
+        }
+        let mut pts = vec![0; rs.len()];
+
+        for _ in 0..seconds {
+            pts = Reindeer::new_race_tick(rs, pts);
+        }
+
+        let m = pts.iter().max().unwrap().to_owned();
+        for (r, p) in rs.iter().zip(pts) {
+            if p == m {
+                return Some((r.clone(), p));
+            }
+        }
+        None
     }
 }
 
@@ -259,5 +313,13 @@ mod tests {
 
         assert_eq!(comet.distance, 1120);
         assert_eq!(dancer.distance, 1056);
+    }
+
+    #[test]
+    fn test_new_race() {
+        let mut rs = vec![get_comet(), get_dancer()];
+        let (winner, pts) = Reindeer::new_race(&mut rs, 1000).unwrap();
+        assert_eq!(winner.name, "Dancer");
+        assert_eq!(pts, 689);
     }
 }
