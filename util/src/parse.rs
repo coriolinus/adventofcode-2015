@@ -23,6 +23,14 @@ lazy_static! {
         }
         numbers
     };
+
+    static ref PUNCTUATION: HashSet<char> = {
+        let mut punctuation = HashSet::new();
+        for p in ".,:?!;%".chars() {
+            punctuation.insert(p);
+        }
+        punctuation
+    };
 }
 
 
@@ -66,6 +74,7 @@ pub struct Parser {
     force_lowercase: bool,
     require_at_least: Option<usize>,
     require_fewer_than: Option<usize>,
+    clear_trailing_punctuation: bool,
 }
 
 impl Default for Parser {
@@ -78,6 +87,7 @@ impl Default for Parser {
             force_lowercase: true,
             require_at_least: None,
             require_fewer_than: None,
+            clear_trailing_punctuation: false,
         }
     }
 }
@@ -156,6 +166,17 @@ impl Parser {
     /// Default: `None`.
     pub fn require_fewer_than(&self, n: Option<usize>) -> Parser {
         Parser { require_fewer_than: n, ..self.to_owned() }
+    }
+
+    /// If `true`, check every token's last character. If it's punctuation, drop it.
+    ///
+    /// Punctuation defined as ".,:?!;%".
+    ///
+    /// Note: doesn't affect un-consumed tokens in `rest`.
+    ///
+    /// Default: `false`.
+    pub fn clear_trailing_punctuation(&self, c: bool) -> Parser {
+        Parser { clear_trailing_punctuation: c, ..self.to_owned() }
     }
 
     /// Parse a string using these options, if you only care about a few of the tokens.
@@ -268,8 +289,18 @@ impl Parser {
                     return Err(ParseError::TokenMismatchOnFixedKey);
                 }
             }
+            let mut tok = tok.to_string();
+            // check if we're eliminating punctuation
+            if self.clear_trailing_punctuation {
+                let trail = tok.pop().unwrap();
+                if !PUNCTUATION.contains(&trail) {
+                    // oops, it wasn't punctuation
+                    tok.push(trail)
+                }
+            }
+
             // we must be ready to add the current token and move on!
-            pr.tokens.push(tok.to_string());
+            pr.tokens.push(tok);
         }
         Ok(pr)
     }
