@@ -7,9 +7,9 @@ use super::ingredient::Ingredient;
 
 const TOTAL_INGREDIENTS: u16 = 100;
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Recipe {
-    ingredients: HashMap<Ingredient, u16>,
+    pub ingredients: HashMap<Ingredient, u16>,
 }
 
 impl Recipe {

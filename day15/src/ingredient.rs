@@ -6,7 +6,7 @@ use std::collections::HashMap;
 extern crate util;
 use self::util::parse::Parser;
 
-#[derive(PartialEq, Eq, Hash, Clone)]
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct Ingredient {
     pub name: String,
     pub capacity: i32,
