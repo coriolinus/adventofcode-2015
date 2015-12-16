@@ -24,5 +24,4 @@
 
 
 pub mod ingredient;
-
-const TOTAL_INGREDIENTS: u32 = 100;
+pub mod recipe;
