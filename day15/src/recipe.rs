@@ -34,7 +34,7 @@ impl Recipe {
         Recipe { ingredients: ret }
     }
 
-    pub fn goodness(&self) -> u32 {
+    pub fn goodness(&self) -> i32 {
         let mut capacity: i32 = 0;
         let mut durability: i32 = 0;
         let mut flavor: i32 = 0;
@@ -53,7 +53,7 @@ impl Recipe {
             }
         }
 
-        (capacity * durability * flavor * texture) as u32
+        capacity * durability * flavor * texture
     }
 
     pub fn neighbors(&self) -> Neighbors {

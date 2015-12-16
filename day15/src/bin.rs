@@ -11,7 +11,5 @@ fn main() {
     let basic_recipe = Recipe::new(ings);
     let best_goodness_recipe = basic_recipe.climb_goodness();
 
-    println!("Best recipe: {:?}", best_goodness_recipe);
-    println!(".. with total goodness: {}",
-             best_goodness_recipe.goodness());
+    println!("Best recipe: {}", best_goodness_recipe);
 }
