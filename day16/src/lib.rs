@@ -173,15 +173,65 @@ impl Sue {
         }
         true
     }
+
+    pub fn can_be_retro(&self, qtys: &MfcsamQtys) -> bool {
+        for (k, v) in &self.possessions {
+            if let Some(detected) = qtys.get(k) {
+                match k {
+                    &Cats => {
+                        if !(v > detected) {
+                            return false;
+                        }
+                    }
+                    &Trees => {
+                        if !(v > detected) {
+                            return false;
+                        }
+                    }
+                    &Pomeranians => {
+                        if !(v < detected) {
+                            return false;
+                        }
+                    }
+                    &Goldfish => {
+                        if !(v < detected) {
+                            return false;
+                        }
+                    }
+                    _ => {
+                        if v != detected {
+                            return false;
+                        }
+                    }
+                }
+            }
+        }
+        true
+    }
 }
 
-pub fn check_sues(items: MfcsamQtys, lines: &str) -> Vec<Sue> {
+pub fn check_sues(items: &MfcsamQtys, lines: &str) -> Vec<Sue> {
     let mut ret = Vec::new();
 
     let lines = lines.split('\n');
     for line in lines {
         if let Some(sue) = Sue::parse(line) {
             if sue.can_be(&items) {
+                ret.push(sue);
+            }
+        }
+    }
+
+    ret
+}
+
+pub fn check_sues_retro(items: &MfcsamQtys, lines: &str) -> Vec<Sue> {
+    let mut ret = Vec::new();
+
+    let lines = lines.split('\n');
+    for line in lines {
+        if let Some(sue) = Sue::parse(line) {
+            if sue.can_be_retro(&items) {
                 ret.push(sue);
             }
         }
