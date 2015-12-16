@@ -1,7 +1,7 @@
 use std::fmt;
 
 use std::hash::{Hash, Hasher};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::collections::hash_map::Iter;
 
 use super::ingredient::Ingredient;
@@ -90,6 +90,63 @@ impl Recipe {
         }
         best_recipe
     }
+
+    pub fn calories(&self) -> i32 {
+        self.ingredients
+            .iter()
+            .map(|(ing, &qty)| ing.calories * qty as i32)
+            .fold(0, |acc, val| acc + val)
+    }
+
+    pub fn exhaust_goodness_constrained(&self, calories: i32) -> Option<Recipe> {
+        let mut best_constrained_recipe = if self.calories() == calories {
+            Some(self.to_owned())
+        } else {
+            None
+        };
+        if self.ingredients.len() < 2 {
+            // no neighbors can exist
+            return best_constrained_recipe;
+        }
+        // for 2 or more ingredients, at least one neighbor must exist
+
+        let mut visited = HashSet::new();
+        let mut future = Vec::new();
+        let mut to_examine = self.neighbors().collect::<Vec<_>>();
+
+        loop {
+            for recipe in to_examine {
+                // skip work if we can
+                if visited.contains(&recipe) {
+                    continue;
+                }
+                visited.insert(recipe.to_owned());
+
+                // add future work
+                future.extend(recipe.neighbors());
+
+                // check this recipe
+                if recipe.calories() == calories &&
+                   (best_constrained_recipe.is_none() ||
+                    recipe.goodness() > best_constrained_recipe.clone().unwrap().goodness()) {
+                    best_constrained_recipe = Some(recipe.clone());
+                }
+            }
+
+            // reset to_examine to a list of items not already seen
+            to_examine = future.iter()
+                               .filter(|r| !visited.contains(r))
+                               .cloned()
+                               .collect::<Vec<_>>();
+            if to_examine.len() == 0 {
+                break;
+            }
+            future = Vec::new();
+        }
+
+
+        best_constrained_recipe
+    }
 }
 
 impl Hash for Recipe {
@@ -145,7 +202,7 @@ impl<'a> Neighbors<'a> {
 }
 
 impl<'a> Iterator for Neighbors<'a> {
-    type Item =  Recipe;
+    type Item = Recipe;
 
     fn next(&mut self) -> Option<Recipe> {
         // println!("   | Called `Neighbors::next()`");
