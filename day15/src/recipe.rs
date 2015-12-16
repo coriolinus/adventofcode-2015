@@ -1,4 +1,5 @@
 
+use std::hash::{Hash, Hasher};
 use std::collections::HashMap;
 use std::collections::hash_map::Iter;
 
@@ -6,7 +7,7 @@ use super::ingredient::Ingredient;
 
 const TOTAL_INGREDIENTS: u16 = 100;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Recipe {
     ingredients: HashMap<Ingredient, u16>,
 }
@@ -56,6 +57,43 @@ impl Recipe {
 
     pub fn neighbors(&self) -> Neighbors {
         Neighbors::new(self)
+    }
+
+    pub fn climb_goodness(&self) -> Recipe {
+        if self.ingredients.len() < 2 {
+            // no neighbors can exist
+            return self.clone();
+        }
+        // for 2 or more ingredients, at least one neighbor must exist
+
+        let mut best_recipe = self.to_owned();
+        let mut prev_best_recipe = self.to_owned();
+        let mut best_goodness = self.goodness();
+
+        loop {
+            for n in prev_best_recipe.neighbors() {
+                if n.goodness() > best_goodness {
+                    best_recipe = n.to_owned();
+                    best_goodness = n.goodness();
+                }
+            }
+            if best_recipe == prev_best_recipe {
+                // we've found at least a local maximum
+                break;
+            } else {
+                prev_best_recipe = best_recipe.to_owned();
+            }
+        }
+        best_recipe
+    }
+}
+
+impl Hash for Recipe {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        for (k, v) in self.ingredients.iter() {
+            k.hash(state);
+            v.hash(state);
+        }
     }
 }
 
@@ -127,6 +165,8 @@ impl<'a> Iterator for Neighbors<'a> {
             let mut recipe = self.recipe.clone();
             recipe.ingredients.insert(incr.clone(), inc_q);
             recipe.ingredients.insert(decr.clone(), dec_q);
+            assert_eq!(recipe.ingredients.values().fold(0, |acc, v| acc + v),
+                       TOTAL_INGREDIENTS);
             Some(recipe)
         } else {
             // oops, just get the next thing
