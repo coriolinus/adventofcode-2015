@@ -47,9 +47,9 @@ impl Recipe {
             texture += *qty as i32 * ing.texture;
         }
 
-        for quality in &mut [capacity, durability, flavor, texture] {
+        for quality in &[capacity, durability, flavor, texture] {
             if *quality < 0 {
-                *quality = 0;
+                return 0;
             }
         }
 

@@ -12,4 +12,10 @@ fn main() {
     let best_goodness_recipe = basic_recipe.climb_goodness();
 
     println!("Best recipe: {}", best_goodness_recipe);
+
+    if let Some(five_hundred) = basic_recipe.exhaust_goodness_constrained(500) {
+        println!("Best recipe with 500 calories: {}", five_hundred);
+    } else {
+        println!("Couldn't find a recipe to match the constraint!");
+    }
 }
