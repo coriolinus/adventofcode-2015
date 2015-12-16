@@ -144,7 +144,6 @@ impl Recipe {
             future = Vec::new();
         }
 
-
         best_constrained_recipe
     }
 }

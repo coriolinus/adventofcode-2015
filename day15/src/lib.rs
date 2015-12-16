@@ -72,4 +72,20 @@ mod tests {
         assert_eq!(recipe.ingredients.get(bs).unwrap(), &44);
         assert_eq!(recipe.ingredients.get(cm).unwrap(), &56);
     }
+
+    #[test]
+    fn test_exhaust_example_constrained() {
+        let ings = parse_ingredients(&get_example());
+        let ref bs = ings[0]; // butterscotch
+        let ref cm = ings[1]; // cinnamon
+
+        let recipe = Recipe::new(ings.to_owned()).exhaust_goodness_constrained(500);
+
+        assert!(recipe.is_some());
+
+        let recipe = recipe.unwrap();
+        assert_eq!(recipe.goodness(), 57600000);
+        assert_eq!(recipe.ingredients.get(bs).unwrap(), &40);
+        assert_eq!(recipe.ingredients.get(cm).unwrap(), &60);
+    }
 }
