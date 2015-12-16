@@ -65,6 +65,9 @@ mod tests {
 
         let recipe = Recipe::new(ings.to_owned()).climb_goodness();
 
+        // println!("");
+        // println!("Best recipe found: {}", recipe);
+
         assert_eq!(recipe.goodness(), 62842880);
         assert_eq!(recipe.ingredients.get(bs).unwrap(), &44);
         assert_eq!(recipe.ingredients.get(cm).unwrap(), &56);

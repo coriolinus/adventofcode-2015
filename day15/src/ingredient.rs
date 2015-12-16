@@ -1,5 +1,7 @@
 //! A model of a recipe ingredient
 
+use std::fmt;
+
 use std::str::FromStr;
 use std::collections::HashMap;
 
@@ -65,5 +67,11 @@ impl Ingredient {
         } else {
             None
         }
+    }
+}
+
+impl fmt::Display for Ingredient {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Ingredient ({})>", self.name)
     }
 }

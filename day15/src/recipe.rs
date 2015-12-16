@@ -1,3 +1,4 @@
+use std::fmt;
 
 use std::hash::{Hash, Hasher};
 use std::collections::HashMap;
@@ -71,7 +72,10 @@ impl Recipe {
         let mut best_goodness = self.goodness();
 
         loop {
+            // println!("");
+            // println!("Neighbors of {}:", prev_best_recipe);
             for n in prev_best_recipe.neighbors() {
+                // println!(" - {}", n);
                 if n.goodness() > best_goodness {
                     best_recipe = n.to_owned();
                     best_goodness = n.goodness();
@@ -94,6 +98,22 @@ impl Hash for Recipe {
             k.hash(state);
             v.hash(state);
         }
+    }
+}
+
+impl fmt::Display for Recipe {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut res = write!(f, "Result<");
+        if self.ingredients.len() > 0 {
+            res = res.and(write!(f, "{{"));
+
+            for (k, v) in self.ingredients.iter() {
+                res = res.and(write!(f, "{}: {}, ", k, v));
+            }
+
+            res = res.and(write!(f, "}}"));
+        }
+        res.and(write!(f, ", {}>", self.goodness()))
     }
 }
 
@@ -128,13 +148,17 @@ impl<'a> Iterator for Neighbors<'a> {
     type Item =  Recipe;
 
     fn next(&mut self) -> Option<Recipe> {
+        // println!("   | Called `Neighbors::next()`");
         if self.incr_t.is_none() {
+            // println!("   |  self.incr_t is None; ending. ");
             return None;
         }
         let (incr, inc_q) = self.incr_t.to_owned().unwrap();
+        // println!("   |  Ingredient to increase & qty: {}, {}", incr, inc_q);
 
         // ensure we're not trying to increase any quantity over the max
         if inc_q > TOTAL_INGREDIENTS {
+            // println!("   |  qty was too high. Incrementing incr_t and recursing.");
             self.increment_incr();
             return self.next();
         }
@@ -144,15 +168,20 @@ impl<'a> Iterator for Neighbors<'a> {
 
         // reset and get the next increasing ingredient if we're out of ones to decrease
         if decr_t == None {
+            // println!("   |  Out of items to decrease. Increasing incr_t and recursing.");
             self.increment_incr();
+            // Don't forget to reset the iterator of items to decrease!
+            self.decr_it = self.recipe.ingredients.iter();
             return self.next();
         }
 
         // here, incr and decr are not None
         let (decr, &dec_q) = decr_t.unwrap();
+        // println!("   |  Ingredient to decrease and cur qty: {}, {}", decr, dec_q);
 
         // continue iteration if we find the same ingredient we're increasing
         if *decr == incr {
+            // println!("   |  Decrease item was the same as Increase item. Recursing.");
             return self.next();
         }
 
@@ -160,6 +189,8 @@ impl<'a> Iterator for Neighbors<'a> {
         if dec_q >= 1 {
             // actually decrement the quantity of dec_q
             let dec_q = dec_q - 1;
+            // println!("   |  Using {} as dec_q", dec_q);
+
 
             // finally construct a new Recipe
             let mut recipe = self.recipe.clone();
@@ -167,8 +198,11 @@ impl<'a> Iterator for Neighbors<'a> {
             recipe.ingredients.insert(decr.clone(), dec_q);
             assert_eq!(recipe.ingredients.values().fold(0, |acc, v| acc + v),
                        TOTAL_INGREDIENTS);
+
+            // println!("   | Successfully found next neighbor. Returning.");
             Some(recipe)
         } else {
+            // println!("   |  Couldn't decrease item qty. Recursing.");
             // oops, just get the next thing
             self.next()
         }
