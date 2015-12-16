@@ -65,7 +65,7 @@ pub enum MfcsamItem {
 use MfcsamItem::{Children, Cats, Samoyeds, Pomeranians, Akitas, Vizslas, Goldfish, Trees, Cars,
                  Perfumes};
 
-pub fn get_mfcsam_item(item: &str) -> Option<MfcsamItem> {
+fn get_mfcsam_item(item: &str) -> Option<MfcsamItem> {
     let mut h = HashMap::new();
 
     h.insert("children", Children);
@@ -113,9 +113,10 @@ pub fn mfcsam_result() -> MfcsamQtys {
     h
 }
 
+#[derive(PartialEq, Eq, Debug)]
 pub struct Sue {
-    num: u16,
-    possessions: MfcsamQtys,
+    pub num: u16,
+    pub possessions: MfcsamQtys,
 }
 
 impl Sue {
@@ -163,4 +164,28 @@ impl Sue {
             }
         }
     }
+
+    pub fn can_be(&self, qtys: &MfcsamQtys) -> bool {
+        for (k, v) in &self.possessions {
+            if qtys.contains_key(k) && qtys.get(k).unwrap() != v {
+                return false;
+            }
+        }
+        true
+    }
+}
+
+pub fn check_sues(items: MfcsamQtys, lines: &str) -> Vec<Sue> {
+    let mut ret = Vec::new();
+
+    let lines = lines.split('\n');
+    for line in lines {
+        if let Some(sue) = Sue::parse(line) {
+            if sue.can_be(&items) {
+                ret.push(sue);
+            }
+        }
+    }
+
+    ret
 }

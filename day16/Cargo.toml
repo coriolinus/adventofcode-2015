@@ -4,11 +4,11 @@ version = "0.1.0"
 authors = ["coriolinus <coriolinus@gmail.com>"]
 
 [lib]
-name = "day14lib"
+name = "day16lib"
 path = "src/lib.rs"
 
 [[bin]]
-name = "day14bin"
+name = "day16bin"
 path = "src/bin.rs"
 
 [dependencies]
