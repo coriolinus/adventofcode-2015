@@ -57,7 +57,7 @@ impl Iterator for EggnogFiller {
             return None;
         }
 
-        if self.preserve_biggest {
+        if !self.preserve_biggest {
             // let's modify the biggest number!
             self.biggest = self.into.remove(0);
 
@@ -119,5 +119,27 @@ impl Iterator for EggnogFiller {
             }
         }
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// For example, suppose you have containers of size `20`, `15`, `10`, `5`, and `5` liters. If you
+    /// need to store `25` liters, there are four ways to do it:
+    ///
+    /// - `20` and `5` (the first `5`)
+    /// - `20` and `5` (the second `5`)
+    /// - `15` and `10`
+    /// - `15`, `5`, and `5`
+    #[test]
+    fn test_example() {
+        let mut filler = EggnogFiller::new(25, vec![20, 15, 10, 5, 5]);
+        assert_eq!(filler.next(), Some(vec![20, 5]));
+        assert_eq!(filler.next(), Some(vec![20, 5]));
+        assert_eq!(filler.next(), Some(vec![15, 10]));
+        assert_eq!(filler.next(), Some(vec![15, 5, 5]));
+        assert_eq!(filler.next(), None);
     }
 }
