@@ -22,6 +22,14 @@ fn main() {
         }
     }
 
-    let combo_count = EggnogFiller::new(EGGNOG, containers).count();
+    let filler = EggnogFiller::new(EGGNOG, containers);
+    let combo_count = filler.clone().count();
     println!("Possible combinations: {}", combo_count);
+
+    let min_ctrs = filler.clone().map(|c| c.len()).min().unwrap();
+    let ways_min = filler.clone().filter(|c| c.len() == min_ctrs).count();
+
+    println!("..with {} ways to use only {} containers.",
+             ways_min,
+             min_ctrs);
 }
