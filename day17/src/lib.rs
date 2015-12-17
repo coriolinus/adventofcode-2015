@@ -142,4 +142,24 @@ mod tests {
         assert_eq!(filler.next(), Some(vec![15, 5, 5]));
         assert_eq!(filler.next(), None);
     }
+
+    #[test]
+    fn test_example_reversed() {
+        let mut filler = EggnogFiller::new(25, vec![5, 5, 10, 15, 20]);
+        assert_eq!(filler.next(), Some(vec![20, 5]));
+        assert_eq!(filler.next(), Some(vec![20, 5]));
+        assert_eq!(filler.next(), Some(vec![15, 10]));
+        assert_eq!(filler.next(), Some(vec![15, 5, 5]));
+        assert_eq!(filler.next(), None);
+    }
+
+    #[test]
+    fn test_example_munged() {
+        let mut filler = EggnogFiller::new(25, vec![5, 10, 20, 15, 5]);
+        assert_eq!(filler.next(), Some(vec![20, 5]));
+        assert_eq!(filler.next(), Some(vec![20, 5]));
+        assert_eq!(filler.next(), Some(vec![15, 10]));
+        assert_eq!(filler.next(), Some(vec![15, 5, 5]));
+        assert_eq!(filler.next(), None);
+    }
 }
