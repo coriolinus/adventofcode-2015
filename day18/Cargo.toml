@@ -1,0 +1,15 @@
+[package]
+name = "day18"
+version = "0.1.0"
+authors = ["coriolinus <coriolinus@gmail.com>"]
+
+[lib]
+name = "day17lib"
+path = "src/lib.rs"
+
+[[bin]]
+name = "day17bin"
+path = "src/bin.rs"
+
+[dependencies]
+util = { path = "../util"}
