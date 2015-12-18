@@ -150,7 +150,7 @@ impl LightGrid {
         let mut ret = 0;
         for cx in &xs {
             for cy in &ys {
-                if cx != cy {
+                if !((*cx == x) && (*cy == y)) {
                     if self.lights[*cy][*cx] {
                         ret += 1;
                     }
@@ -197,9 +197,77 @@ impl LightGrid {
         }
         ret
     }
+
+    pub fn to_string(&self) -> String {
+        let mut ret = String::new();
+        for y in 0..self.lights.len() {
+            for x in 0..self.lights.len() {
+                ret.push_str(if self.lights[y][x] {
+                    "#"
+                } else {
+                    "."
+                });
+            }
+            ret.push_str("\n");
+        }
+        ret
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use super::*;
 
+    fn get_example() -> LightGrid {
+        let lines = [".#.#.#", "...##.", "#....#", "..#...", "#.#..#", "####.."];
+        let mut ret = String::new();
+        for line in lines.iter() {
+            ret.push_str(line);
+            ret.push_str("\n");
+        }
+        LightGrid::parse_lines(&ret).unwrap()
+    }
+
+    #[test]
+    fn test_example() {
+        let mut grid = get_example();
+        assert_eq!(grid.count_on(), 15);
+        println!("");
+        println!("Initial State:");
+        println!("{}", grid.to_string());
+
+        // 1st step
+        grid = grid.next_state();
+        println!("After 1st step:");
+        println!("{}", grid.to_string());
+        assert_eq!(grid.count_on(), 11);
+
+        // 2nd step
+        grid = grid.next_state();
+        println!("After 2nd step:");
+        println!("{}", grid.to_string());
+        assert_eq!(grid.count_on(), 8);
+
+        // 3rd step
+        grid = grid.next_state();
+        println!("After 3rd step:");
+        println!("{}", grid.to_string());
+        assert_eq!(grid.count_on(), 4);
+
+        // 4th step
+        grid = grid.next_state();
+        println!("After 4th step:");
+        println!("{}", grid.to_string());
+        assert_eq!(grid.count_on(), 4);
+    }
+
+    #[test]
+    fn test_ex_first_row_count() {
+        let example = get_example();
+        let expected: Vec<u8> = vec![1, 0, 3, 2, 4, 1];
+        let found = (0..6)
+                        .map(|x| example.count_adjacent_on(x, 0))
+                        .collect::<Vec<_>>();
+        assert_eq!(found, expected);
+    }
 }
