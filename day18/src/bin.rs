@@ -16,6 +16,15 @@ fn main() {
         println!("{} lights on after {} iterations",
                  grid.count_on(),
                  ITERATIONS);
+
+        grid = LightGrid::parse_lines_stuck(&lines).unwrap();
+        for _ in 0..ITERATIONS {
+            grid = grid.next_state_stuck();
+        }
+        println!("When stuck, {} lights on after {} iterations",
+                 grid.count_on(),
+                 ITERATIONS);
+
     } else {
         println!("Couldn't parse the input lines as a LightGrid!")
     }

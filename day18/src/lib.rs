@@ -117,6 +117,18 @@ impl LightGrid {
         Some(LightGrid { lights: ret })
     }
 
+    pub fn parse_lines_stuck(lines: &str) -> Option<LightGrid> {
+        if let Some(mut grid) = LightGrid::parse_lines(lines) {
+            let end = grid.lights.len() - 1;
+            for (x, y) in vec![(0, 0), (0, end), (end, 0), (end, end)] {
+                grid.lights[y][x] = true;
+            }
+            Some(grid)
+        } else {
+            None
+        }
+    }
+
     // Returns the count of lights adjacent to the given `x, y` coordinate which are currently
     // turned on.
     //
@@ -184,6 +196,17 @@ impl LightGrid {
         }
 
         ret
+    }
+
+    pub fn next_state_stuck(&self) -> LightGrid {
+        let mut grid = self.next_state();
+
+        let end = grid.lights.len() - 1;
+        for (x, y) in vec![(0, 0), (0, end), (end, 0), (end, end)] {
+            grid.lights[y][x] = true;
+        }
+
+        grid
     }
 
     pub fn count_on(&self) -> u16 {
