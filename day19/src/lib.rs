@@ -259,8 +259,11 @@ pub fn fabricate_steps_count(transforms: &HashMap<String, Vec<String>>, target: 
         if tried.insert(ex.clone()) {
             // `.insert()` returns true if the value was not already present
             for mutation in TransformEnumerator::new(transforms, &ex).filter(|m| !tried.contains(m)) {
+                // this depends on the fact that no mutation shortens the overall length of the string.
+                // That may not always be the case! Be careful with that!
+                if mutation.len() <= target.len() {
                 to_examine.push((mutation, history));
-            }
+            }}
         }
     }
     None
