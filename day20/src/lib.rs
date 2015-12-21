@@ -150,6 +150,25 @@ pub fn presents_at(sieve: &mut SieveOfErasthenes, house: usize) -> usize {
     factors.iter().fold(0, |acc, item| acc + (10 * item))
 }
 
+pub fn first_house_with_n_presents(n: usize) -> usize {
+    // the brute force of memory way!
+    let stop = (n / 10) + 1;
+    // we have an upper bound for the answer: even if nobody else stops there, elf `n/10` will
+    // stop by and drop off that many right away
+    let mut houses = vec![0; stop];
+    for elf in 1..stop {
+        for j in (1..).map(|jj| jj * elf).take_while(|jj| jj < &stop) {
+            houses[j] += elf * 10;
+        }
+    }
+    for (i, h) in houses.iter().enumerate() {
+        if h >= &n {
+            return i;
+        }
+    }
+    0
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -183,5 +202,12 @@ mod tests {
         let expected = vec![1, 2, 3, 4, 5, 6, 8, 9, 10, 12, 15, 18, 20, 24, 30, 36, 40, 45, 60,
                             72, 90, 120, 180, 360];
         assert_eq!(sieve.factorize(360), expected);
+    }
+
+    #[test]
+    fn test_first_house_with_n() {
+        for (input, output) in vec![(25, 2), (50, 4), (100, 6), (150, 8)] {
+            assert_eq!(first_house_with_n_presents(input), output);
+        }
     }
 }
