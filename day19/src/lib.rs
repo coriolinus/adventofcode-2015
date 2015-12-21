@@ -41,3 +41,94 @@
 //! Your puzzle input describes all of the possible replacements and, at the bottom, the medicine
 //! molecule for which you need to calibrate the machine. How many distinct molecules can be
 //! created after all the different ways you can do one replacement on the medicine molecule?
+
+use std::collections::HashMap;
+
+pub fn parse_replacements(lines: &str) -> Option<HashMap<String, Vec<String>>> {
+    let mut ret = HashMap::new();
+    for line in lines.split("\n") {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+
+        if line.split("=>").count() != 2 {
+            // can't break this line in half
+            // who knows what craziness has occurred
+            // malformed input, anyway
+            return None;
+        }
+
+        let mut splitter = line.split("=>");
+        let from = splitter.next().unwrap().to_string();
+        let to = splitter.next().unwrap().to_string();
+
+        if ret.contains_key(&from) {
+            let mut val_vec: &mut Vec<String> = ret.get_mut(&from).unwrap();
+            val_vec.push(to);
+        } else {
+            ret.insert(from, vec![to]);
+        }
+    }
+    Some(ret)
+}
+
+/// An Iterator over simple transformations of a given string.
+///
+/// Given a String to transform from, a String to transform to, and an input, the ChemTransformer
+/// iterates over instances of matches of `from` in `input`. Each Item in this sequence is the
+/// input, with that particular match of `from` replaced with `to`.
+pub struct ChemTransformer {
+    from: String,
+    to: String,
+    chunks: Vec<String>,
+    repl_index: usize,
+}
+
+impl ChemTransformer {
+    pub fn new(trans_from: String, trans_to: String, replace_item: String) -> ChemTransformer {
+        ChemTransformer {
+            chunks: replace_item.split(&trans_from).map(|s| s.to_string()).collect::<Vec<String>>(),
+            from: trans_from,
+            to: trans_to,
+            repl_index: 0,
+        }
+    }
+}
+
+impl Iterator for ChemTransformer {
+    type Item = String;
+
+    fn next(&mut self) -> Option<String> {
+        // Situation: we have divided our input string into N chunks. Between each chunk, we insert
+        // either our `to` item or replace the `from` item it came from.
+        //
+        // Trivial example: from = "O", to = "HH", input = "HOH", chunks = ["H", "H"]
+        // We should return exactly one result, then None forevermore.
+        // Our result: "HHHH"
+        //
+        // Slightly non-trivial example:
+        // from = "H", to = "HO", input = "HOH"
+        // chunks = ["", "O", ""]
+        // Results: "HOOH", "HOHO"
+        if self.repl_index < self.chunks.len() - 1 {
+            self.repl_index += 1;
+        } else {
+            return None;
+        }
+
+        let mut ret = "".to_string();
+        for (i, chunk) in self.chunks.iter().enumerate() {
+            // don't emit filler before the first character
+            if i != 0 {
+                ret.push_str(if i == self.repl_index {
+                    &self.to
+                } else {
+                    &self.from
+                });
+            }
+            ret.push_str(&chunk);
+        }
+        Some(ret)
+    }
+}
