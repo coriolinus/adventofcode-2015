@@ -78,6 +78,7 @@ pub fn parse_replacements(lines: &str) -> Option<HashMap<String, Vec<String>>> {
 /// Given a String to transform from, a String to transform to, and an input, the ChemTransformer
 /// iterates over instances of matches of `from` in `input`. Each Item in this sequence is the
 /// input, with that particular match of `from` replaced with `to`.
+#[derive(PartialEq, Eq, Clone)]
 pub struct ChemTransformer {
     from: String,
     to: String,
@@ -130,5 +131,29 @@ impl Iterator for ChemTransformer {
             ret.push_str(&chunk);
         }
         Some(ret)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_chem_transformer() {
+        let tests = vec![("O", "HH", "HOH", vec!["HHHH"]),
+                         ("H", "HO", "HOH", vec!["HOOH", "HOHO"])];
+
+        for (from, to, input, expect) in tests {
+            let from = from.to_string();
+            let to = to.to_string();
+            let input = input.to_string();
+            let expect = expect.iter().map(|s| s.to_string()).collect::<Vec<String>>();
+
+            let ct = ChemTransformer::new(from, to, input);
+            assert_eq!(ct.clone().count(), expect.len());
+            for (result, exp) in ct.zip(expect) {
+                assert_eq!(result, exp);
+            }
+        }
     }
 }
