@@ -169,6 +169,25 @@ pub fn first_house_with_n_presents(n: usize) -> usize {
     0
 }
 
+pub fn first_house_with_n_presents_limited(n: usize) -> usize {
+    // the brute force of memory way!
+    let stop = (n / 10) + 1;
+    // we have an upper bound for the answer: even if nobody else stops there, elf `n/10` will
+    // stop by and drop off that many right away
+    let mut houses = vec![0; stop];
+    for elf in 1..stop {
+        for j in (1..).map(|jj| jj * elf).take_while(|jj| jj < &stop).take(50) {
+            houses[j] += elf * 11;
+        }
+    }
+    for (i, h) in houses.iter().enumerate() {
+        if h >= &n {
+            return i;
+        }
+    }
+    0
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
