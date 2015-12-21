@@ -43,7 +43,7 @@
 //! created after all the different ways you can do one replacement on the medicine molecule?
 
 
-use std::collections::{HashMap};
+use std::collections::{HashMap, HashSet};
 
 pub mod countdistinct;
 use countdistinct::CountDistinct;
@@ -208,6 +208,35 @@ impl<'a> Iterator for TransformEnumerator<'a> {
 
 impl<'a> CountDistinct for TransformEnumerator<'a> {}
 
+/// Generate a target string by applying a sequence of string transformations to the single
+/// character `e`. Allowable string transformations are given in the parameter `transforms`.
+/// Target to generate given in the parameter `target`.
+///
+/// Returns `Vec<String>`, containing all mutations on the way to the target
+pub fn fabricate(transforms: &HashMap<String, Vec<String>>, target: &str) -> Option<Vec< String>> {
+    // to_examine: a list of tuples:
+    // (next, history)
+    // where next is simply the next thing to try,
+    // and history is how we got there: a list of strings.
+    let mut to_examine : Vec<(String, Vec<String>)> = vec![("e".to_string(), Vec::new())];
+    let mut tried = HashSet::new();
+
+    while to_examine.len() > 0 {
+        let (ex, mut history) = to_examine.remove(0);
+        history.push(ex.clone());
+        if ex == target {
+            return Some(history);
+        }
+        if tried.insert(ex.clone()) {
+            // `.insert()` returns true if the value was not already present
+            for mutation in TransformEnumerator::new(transforms, &ex).filter(|m| !tried.contains(m)) {
+                to_examine.push((mutation, history.clone()));
+            }
+        }
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
@@ -261,5 +290,26 @@ mod tests {
 
         assert_eq!(rep.get("H").unwrap().len(), 2);
         assert_eq!(rep.get("O").unwrap().len(), 1);
+    }
+
+    #[test]
+    fn test_part_2_examples() {
+        let mut lines = "".to_string();
+        lines.push_str("e => H\n");
+        lines.push_str("e => O\n");
+        lines.push_str("H => HO\n");
+        lines.push_str("H => OH\n");
+        lines.push_str("O => HH\n");
+
+        let transforms = parse_replacements(&lines).unwrap();
+
+        println!("Fabricating 'e'...");
+        assert_eq!(fabricate(&transforms, "e").unwrap(), vec!["e"]);
+
+        println!("Fabricating 'HOH'...");
+        assert_eq!(fabricate(&transforms, "HOH").unwrap(), vec!["e", "O", "HH", "HOH"]);
+
+        println!("Fabricating 'HOHOHO'...");
+        assert_eq!(fabricate(&transforms, "HOHOHO").unwrap().len(), 7);
     }
 }
