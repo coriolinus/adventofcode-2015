@@ -12,10 +12,13 @@ fn main() {
                                      EOF.")
                     .unwrap();
 
-    let mut separator = lines.split("\n\n");
-    if !separator.clone().count() >= 2 {
-        separator = lines.split("\r\n\r\n")
-    }
+    let mut separator = lines.split({
+        match lines.find("\r\n") {
+            Some(_) => "\r\n\r\n",
+            None => "\n\n",
+        }
+    });
+
     let mut sn = separator.next();
     if sn.is_none() {
         println!("Couldn't split the input properly!");
