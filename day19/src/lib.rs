@@ -237,6 +237,35 @@ pub fn fabricate(transforms: &HashMap<String, Vec<String>>, target: &str) -> Opt
     None
 }
 
+/// Generate a target string by applying a sequence of string transformations to the single
+/// character `e`. Allowable string transformations are given in the parameter `transforms`.
+/// Target to generate given in the parameter `target`.
+///
+/// Returns `usize`, the number of steps after `e` to generate the target
+pub fn fabricate_steps_count(transforms: &HashMap<String, Vec<String>>, target: &str) -> Option<usize> {
+    // to_examine: a list of tuples:
+    // (next, history)
+    // where next is simply the next thing to try,
+    // and history is how we got there: a list of strings.
+    let mut to_examine : Vec<(String, usize)> = vec![("e".to_string(), 0)];
+    let mut tried = HashSet::new();
+
+    while to_examine.len() > 0 {
+        let (ex, mut history) = to_examine.remove(0);
+        if ex == target {
+            return Some(history);
+        }
+        history += 1;
+        if tried.insert(ex.clone()) {
+            // `.insert()` returns true if the value was not already present
+            for mutation in TransformEnumerator::new(transforms, &ex).filter(|m| !tried.contains(m)) {
+                to_examine.push((mutation, history));
+            }
+        }
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
@@ -311,5 +340,26 @@ mod tests {
 
         println!("Fabricating 'HOHOHO'...");
         assert_eq!(fabricate(&transforms, "HOHOHO").unwrap().len(), 7);
+    }
+
+    #[test]
+    fn test_fabricate_steps_count() {
+        let mut lines = "".to_string();
+        lines.push_str("e => H\n");
+        lines.push_str("e => O\n");
+        lines.push_str("H => HO\n");
+        lines.push_str("H => OH\n");
+        lines.push_str("O => HH\n");
+
+        let transforms = parse_replacements(&lines).unwrap();
+
+        println!("Fabricating 'e'...");
+        assert_eq!(fabricate_steps_count(&transforms, "e").unwrap(), 0);
+
+        println!("Fabricating 'HOH'...");
+        assert_eq!(fabricate_steps_count(&transforms, "HOH").unwrap(), 3);
+
+        println!("Fabricating 'HOHOHO'...");
+        assert_eq!(fabricate_steps_count(&transforms, "HOHOHO").unwrap(), 6);
     }
 }
