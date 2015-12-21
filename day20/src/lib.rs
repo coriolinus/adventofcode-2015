@@ -33,10 +33,13 @@
 //! What is the lowest house number of the house to get at least as many presents as the number in
 //! your puzzle input?
 
+extern crate permutohedron;
+use permutohedron::heap_recursive;
+
 use std::collections::HashSet;
 
 /// Usized floor of the square root of the input number
-fn usqrt(num: usize) -> usize {
+pub fn usqrt(num: usize) -> usize {
     (num as f64).sqrt().floor() as usize
 }
 
@@ -76,31 +79,47 @@ impl SieveOfErasthenes {
     }
 
     /// Return a list of all prime factors of `num`
-    pub fn factorize(&mut self, num: usize) -> Vec<usize> {
+    pub fn factorize_prime(&mut self, num: usize) -> Vec<usize> {
         match num {
             0 => Vec::new(),
             1 => vec![1],
             _ => {
                 // initialize the return
-                let mut ret = vec![1];
-                ret.extend(self.prime_factors(num));
-                // get rid of the last number if we're prime:
-                let last = ret.pop().unwrap();
-                if last == num {
-                    // we're prime; forget it
-                } else {
-                    ret.push(last);
+                let mut ret = vec![];
+                let mut quot = num;
+                for p in self.prime_factors(num) {
+                    while quot % p == 0 {
+                        ret.push(p);
+                        quot /= p;
+                    }
                 }
-                // now go through the list and add the complements of all the factors
-                let mut invert = ret.clone();
-                invert.reverse();
-                for i in invert {
-                    ret.push(num / i);
-                }
-
                 ret
             }
         }
+    }
+
+    /// return a list of all factors of `num`
+    pub fn factorize(&mut self, num: usize) -> Vec<usize> {
+        let mut prime_factors = self.factorize_prime(num);
+        let mut ret = HashSet::new();
+        ret.extend(&prime_factors);
+
+        let pl = prime_factors.len();
+        heap_recursive(&mut prime_factors, |factor_ordering| {
+            for how_many in 2..pl {
+                ret.insert(factor_ordering.iter().take(how_many).fold(1, |acc, item| acc * item));
+            }
+        });
+
+        ret.insert(1);
+        let complements = ret.clone();
+        for c in complements {
+            ret.insert(num / c);
+        }
+
+        let mut r = ret.iter().cloned().collect::<Vec<usize>>();
+        r.sort();
+        r
     }
 
     /// calculate all primes <= num
@@ -156,5 +175,13 @@ mod tests {
             println!("  Calculated presents: {}", presents_at(&mut sieve, house));
             assert_eq!(presents_at(&mut sieve, house), expect);
         }
+    }
+
+    #[test]
+    fn test_factorize() {
+        let mut sieve = SieveOfErasthenes::new();
+        let expected = vec![1, 2, 3, 4, 5, 6, 8, 9, 10, 12, 15, 18, 20, 24, 30, 36, 40, 45, 60,
+                            72, 90, 120, 180, 360];
+        assert_eq!(sieve.factorize(360), expected);
     }
 }
