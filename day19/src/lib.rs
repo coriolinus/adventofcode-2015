@@ -140,8 +140,6 @@ impl Iterator for ChemTransformer {
     }
 }
 
-impl CountDistinct for ChemTransformer {}
-
 pub struct TransformEnumerator<'a> {
     transform_iter: std::collections::hash_map::Iter<'a, String, Vec<String>>,
     from: Option<String>,
