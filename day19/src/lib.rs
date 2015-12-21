@@ -43,7 +43,7 @@
 //! created after all the different ways you can do one replacement on the medicine molecule?
 
 
-use std::collections::{HashMap };
+use std::collections::{HashMap};
 
 pub mod countdistinct;
 use countdistinct::CountDistinct;
@@ -64,8 +64,8 @@ pub fn parse_replacements(lines: &str) -> Option<HashMap<String, Vec<String>>> {
         }
 
         let mut splitter = line.split("=>");
-        let from = splitter.next().unwrap().to_string();
-        let to = splitter.next().unwrap().to_string();
+        let from = splitter.next().unwrap().trim().to_string();
+        let to = splitter.next().unwrap().trim().to_string();
 
         if ret.contains_key(&from) {
             let mut val_vec: &mut Vec<String> = ret.get_mut(&from).unwrap();
@@ -140,6 +140,7 @@ impl Iterator for ChemTransformer {
     }
 }
 
+#[derive(Clone)]
 pub struct TransformEnumerator<'a> {
     transform_iter: std::collections::hash_map::Iter<'a, String, Vec<String>>,
     from: Option<String>,
@@ -209,7 +210,9 @@ impl<'a> CountDistinct for TransformEnumerator<'a> {}
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
     use super::*;
+    use super::countdistinct::CountDistinct;
 
     #[test]
     fn test_chem_transformer() {
@@ -228,5 +231,35 @@ mod tests {
                 assert_eq!(result, exp);
             }
         }
+    }
+
+    #[test]
+    fn test_transform_enumerator() {
+        let rep = get_default_replacements();
+        let input = "HOH";
+        let te = TransformEnumerator::new(&rep, input);
+
+        assert_eq!(te.clone().count(), 5);
+        assert_eq!(te.clone().count_distinct(), 4);
+    }
+
+    fn get_default_replacements() -> HashMap<String, Vec<String>> {
+        let mut lines = "".to_string();
+        lines.push_str("H => HO\n");
+        lines.push_str("H => OH\n");
+        lines.push_str("O => HH\n");
+
+        parse_replacements(&lines).unwrap()
+    }
+
+    #[test]
+    fn test_parse_replacements() {
+        let rep = get_default_replacements();
+
+        assert!(rep.get("H").is_some());
+        assert!(rep.get("O").is_some());
+
+        assert_eq!(rep.get("H").unwrap().len(), 2);
+        assert_eq!(rep.get("O").unwrap().len(), 1);
     }
 }
