@@ -42,7 +42,11 @@
 //! molecule for which you need to calibrate the machine. How many distinct molecules can be
 //! created after all the different ways you can do one replacement on the medicine molecule?
 
-use std::collections::HashMap;
+
+use std::collections::{HashMap };
+
+pub mod countdistinct;
+use countdistinct::CountDistinct;
 
 pub fn parse_replacements(lines: &str) -> Option<HashMap<String, Vec<String>>> {
     let mut ret = HashMap::new();
@@ -72,6 +76,8 @@ pub fn parse_replacements(lines: &str) -> Option<HashMap<String, Vec<String>>> {
     }
     Some(ret)
 }
+
+
 
 /// An Iterator over simple transformations of a given string.
 ///
@@ -133,6 +139,75 @@ impl Iterator for ChemTransformer {
         Some(ret)
     }
 }
+
+impl CountDistinct for ChemTransformer {}
+
+pub struct TransformEnumerator<'a> {
+    transform_iter: std::collections::hash_map::Iter<'a, String, Vec<String>>,
+    from: Option<String>,
+    tos: Option<std::slice::Iter<'a, String>>,
+    input: String,
+    ct: Option<ChemTransformer>,
+}
+
+impl<'a> TransformEnumerator<'a> {
+    pub fn new<'t>(transforms: &'t HashMap<String, Vec<String>>,
+                   input: &str)
+                   -> TransformEnumerator<'t> {
+        TransformEnumerator {
+            from: None,
+            tos: None,
+            ct: None,
+            input: input.to_string(),
+            transform_iter: transforms.iter(),
+        }
+    }
+}
+
+impl<'a> Iterator for TransformEnumerator<'a> {
+    type Item = String;
+
+    fn next(&mut self) -> Option<String> {
+        // to begin: if we already have a working ChemTransformer, see if we can just return
+        // its next item. If it's run out, we can reset and keep going.
+        if self.ct.is_some() {
+            let next = self.ct.as_mut().unwrap().next();
+            if next.is_some() {
+                return next; // Some(str)
+            } else {
+                // self.ct = None;
+                // The above is an unnecessary assignment; we just continue and reset it anyway
+                // in the following lines.
+            }
+        }
+
+        // Our ChemTransformer either ran out or never started, so let's get the materials with
+        // which to build the next one.
+        if self.from.is_none() {
+            let it_next = self.transform_iter.next();
+            if it_next.is_none() {
+                return None;
+            } else {
+                self.from = Some(it_next.unwrap().0.clone());
+                self.tos = Some(it_next.unwrap().1.iter());
+            }
+        }
+        // once we get here, `self.tos` is never None
+        let cur_to = self.tos.as_mut().unwrap().next();
+        if cur_to.is_none() {
+            // go to the next pair
+            self.from = None;
+            return self.next();
+        }
+        let cur_to = cur_to.unwrap();
+        self.ct = Some(ChemTransformer::new(self.from.as_mut().unwrap().clone(),
+                                            cur_to.to_owned(),
+                                            self.input.clone()));
+        return self.next();
+    }
+}
+
+impl<'a> CountDistinct for TransformEnumerator<'a> {}
 
 #[cfg(test)]
 mod tests {
