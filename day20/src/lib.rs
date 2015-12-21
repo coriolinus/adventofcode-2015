@@ -32,3 +32,129 @@
 //!
 //! What is the lowest house number of the house to get at least as many presents as the number in
 //! your puzzle input?
+
+use std::collections::HashSet;
+
+/// Usized floor of the square root of the input number
+fn usqrt(num: usize) -> usize {
+    (num as f64).sqrt().floor() as usize
+}
+
+pub struct SieveOfErasthenes {
+    pub primes: Vec<usize>,
+    through: usize,
+}
+
+
+impl SieveOfErasthenes {
+    pub fn new() -> SieveOfErasthenes {
+        SieveOfErasthenes {
+            primes: vec![2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47],
+            through: 47,
+        }
+    }
+
+
+    /// Return a list of unique prime factors of `num`
+    pub fn prime_factors(&mut self, num: usize) -> Vec<usize> {
+        match num {
+            0...1 => Vec::new(),
+            _ => {
+                let sqrt_fl = usqrt(num);
+                if sqrt_fl > self.through {
+                    self.calc_through(sqrt_fl);
+                }
+
+                self.primes
+                    .iter()
+                    .take_while(|&p| p * p <= num)
+                    .filter(|&p| num % p == 0)
+                    .cloned()
+                    .collect()
+            }
+        }
+    }
+
+    /// Return a list of all prime factors of `num`
+    pub fn factorize(&mut self, num: usize) -> Vec<usize> {
+        match num {
+            0 => Vec::new(),
+            1 => vec![1],
+            _ => {
+                // initialize the return
+                let mut ret = vec![1];
+                ret.extend(self.prime_factors(num));
+                // get rid of the last number if we're prime:
+                let last = ret.pop().unwrap();
+                if last == num {
+                    // we're prime; forget it
+                } else {
+                    ret.push(last);
+                }
+                // now go through the list and add the complements of all the factors
+                let mut invert = ret.clone();
+                invert.reverse();
+                for i in invert {
+                    ret.push(num / i);
+                }
+
+                ret
+            }
+        }
+    }
+
+    /// calculate all primes <= num
+    pub fn calc_through(&mut self, num: usize) {
+        if num <= self.through {
+            return;
+        }
+
+        for through in (self.through + 1)..(num + 1) {
+            let mut potential_prime = true;
+            for p in self.primes.iter().take_while(|&p| p * p <= through) {
+                if through % p == 0 {
+                    potential_prime = false;
+                    break;
+                }
+            }
+            if potential_prime {
+                self.primes.push(through);
+            }
+        }
+        self.through = num;
+    }
+}
+
+pub fn presents_at(sieve: &mut SieveOfErasthenes, house: usize) -> usize {
+    let mut factors = HashSet::new();
+    factors.extend(sieve.factorize(house));
+    factors.iter().fold(0, |acc, item| acc + (10 * item))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sieve() {
+        let expected = vec![2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61,
+                            67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137,
+                            139, 149];
+
+        let mut e = SieveOfErasthenes::new();
+        e.calc_through(150);
+        assert_eq!(e.primes, expected);
+    }
+
+    #[test]
+    fn test_presents() {
+        let mut sieve = SieveOfErasthenes::new();
+        let expected = vec![10, 30, 40, 70, 60, 120, 80, 150, 130];
+        for (house, expect) in (1..).zip(expected) {
+            println!("Expecting: House {} got {} presents", house, expect);
+            println!("  Factors of {}: {:?}", house, sieve.factorize(house));
+            println!("  Calculated presents: {}", presents_at(&mut sieve, house));
+            assert_eq!(presents_at(&mut sieve, house), expect);
+        }
+    }
+}
