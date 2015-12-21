@@ -1,0 +1,57 @@
+This manual approach to the solution more or less directly ripped off from
+the following:
+
+https://www.reddit.com/r/adventofcode/comments/3xflz8/day_19_solutions/cy4etju
+
+A => UF
+A => U(F)
+B => BD
+B => TB
+B => T(F)
+D => DD
+D => PB
+D => P(F)
+D => S(F,F)
+D => S(M)
+D => SU
+F => DF
+F => PM
+F => SA
+H => C(A)
+H => C(F,F,F)
+H => C(F,M)
+H => C(M,F)
+H => HD
+H => N(F,F)
+H => N(M)
+H => NU
+H => OB
+H => O(F)
+M => BF
+M => TM
+N => C(F)
+N => HS
+O => C(F,F)
+O => C(M)
+O => HP
+O => N(F)
+O => OT
+P => DP
+P => PT
+P => S(F)
+S => DS
+U => UD
+T => BP
+T => TT
+e => HF
+e => NA
+e => OM
+
+C(DS(BS(F)TBPTTBF)PBDSUS(TBPBPM)DS(TM)DSUDS(F)(S(F)TTBF)DDS(SUDDS(M)F,S(F,DF)SUDSUPBPTM)DP(SA)PBDDS(F,SUD(F))DDS(PBS(F)M,DDDDSUDDSA)DDS(PBSA)BDDDDSUDPBSUPBPBDS(F,F)SUDS(F)BDDS(F,F)SUDPBSUDS(PM)(F)PTBDP(F)DDDDS(DDS(F,F)F)BDSUF)USUS(T(PM)F)DSUDPBDS(BF)DDP(DDPM)S(F,F)DSU(PBPM)
+
+Count chars: 274
+Count (: 31
+Count ): 31
+Count ,: 8
+
+274 - 62 - (2* 8) - 1:
