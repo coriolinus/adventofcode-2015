@@ -132,3 +132,44 @@
 //! You start with 50 hit points and 500 mana points. The boss's actual stats are in your puzzle
 //! input. What is the least amount of mana you can spend and still win the fight? (Do not include
 //! mana recharge effects as "spending" negative mana.)
+
+pub mod effects;
+
+#[derive(PartialEq, Eq, Copy, Clone, Debug)]
+pub enum CharacterType {
+    Player,
+    Boss,
+}
+
+#[derive(PartialEq, Eq, Copy, Clone, Debug)]
+pub struct Character {
+    ctype: CharacterType,
+    hp: u8,
+    damage: u8,
+    armor: u8,
+    mana: u16,
+}
+
+
+impl Character {
+    /// The boss, as given in the puzzle input
+    pub fn boss() -> Character {
+        Character {
+            ctype: CharacterType::Boss,
+            hp: 55,
+            damage: 8,
+            armor: 0,
+            mana: 0,
+        }
+    }
+
+    pub fn player() -> Character {
+        Character {
+            ctype: CharacterType::Player,
+            hp: 50,
+            damage: 0,
+            armor: 0,
+            mana: 500,
+        }
+    }
+}
