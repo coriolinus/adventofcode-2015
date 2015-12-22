@@ -134,6 +134,12 @@
 //! mana recharge effects as "spending" negative mana.)
 
 pub mod effects;
+use effects::{Magic, EffectImpl};
+use effects::magic_missile::MagicMissile;
+use effects::drain::Drain;
+use effects::shield::Shield;
+use effects::poison::Poison;
+use effects::recharge::Recharge;
 
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub enum CharacterType {
@@ -149,7 +155,6 @@ pub struct Character {
     armor: u8,
     mana: u16,
 }
-
 
 impl Character {
     /// The boss, as given in the puzzle input
@@ -170,6 +175,23 @@ impl Character {
             damage: 0,
             armor: 0,
             mana: 500,
+        }
+    }
+}
+
+#[derive(PartialEq, Eq, Clone)]
+pub struct Arena {
+    player: Character,
+    boss: Character,
+    effects: Vec<EffectImpl>,
+}
+
+impl Arena {
+    pub fn new() -> Arena {
+        Arena {
+            player: Character::player(),
+            boss: Character::boss(),
+            effects: Vec::new(),
         }
     }
 }

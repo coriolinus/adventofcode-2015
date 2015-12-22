@@ -34,4 +34,8 @@ impl Magic for Poison {
             0
         };
     }
+
+    fn to_impl(&self) -> EffectImpl {
+        self.ei.clone()
+    }
 }

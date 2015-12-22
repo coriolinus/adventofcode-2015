@@ -33,4 +33,8 @@ impl Magic for Shield {
             player.armor -= 7;
         }
     }
+
+    fn to_impl(&self) -> EffectImpl {
+        self.ei.clone()
+    }
 }

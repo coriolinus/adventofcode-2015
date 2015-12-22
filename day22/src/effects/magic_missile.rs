@@ -30,4 +30,8 @@ impl Magic for MagicMissile {
             0
         };
     }
+
+    fn to_impl(&self) -> EffectImpl {
+        self.ei.clone()
+    }
 }

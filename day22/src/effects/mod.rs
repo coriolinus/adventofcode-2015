@@ -6,6 +6,7 @@ pub mod shield;
 pub mod poison;
 pub mod recharge;
 
+#[derive(PartialEq, Eq, Clone)]
 pub enum Effects {
     MagicMissile,
     Drain,
@@ -14,6 +15,7 @@ pub enum Effects {
     Recharge,
 }
 
+#[derive(PartialEq, Eq, Clone)]
 pub struct EffectImpl {
     etype: Effects,
     name: String,
@@ -21,7 +23,11 @@ pub struct EffectImpl {
     ttl: u8,
 }
 
+
 pub trait Magic {
+    /// Represent this effect by its storable, clonable implementation.
+    fn to_impl(&self) -> EffectImpl;
+
     /// This happens immediately when the player casts the spell.
     ///
     /// Responsible for consuming the requisite amount of mana, etc.

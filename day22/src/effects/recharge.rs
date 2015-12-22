@@ -30,4 +30,8 @@ impl Magic for Recharge {
         self.ei.ttl -= 1;
         player.mana += 101;
     }
+
+    fn to_impl(&self) -> EffectImpl {
+        self.ei.clone()
+    }
 }

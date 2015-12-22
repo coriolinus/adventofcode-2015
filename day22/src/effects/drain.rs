@@ -31,4 +31,8 @@ impl Magic for Drain {
             0
         };
     }
+
+    fn to_impl(&self) -> EffectImpl {
+        self.ei.clone()
+    }
 }
