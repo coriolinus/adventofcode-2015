@@ -404,6 +404,9 @@ impl Iterator for LoadoutGenerator {
         // every time we upgrade a weapon, the cheapest thing is to throw away all
         // other equipment.
 
+        // second optimization: TODO keep track of the previous set of Armor and Rings. It may be
+        // cheaper to backtrack to an earlier Armor to get some new Rings, for example.
+
         let mut wpn_up = self.current.clone();
         let wpn_up_worked = wpn_up.upgrade_weapon(&self.weapons);
         let mut arm_up = self.current.clone();
