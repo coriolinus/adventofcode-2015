@@ -63,14 +63,14 @@
 //! amount of gold you can spend and still win the fight?
 
 
-#[derive(PartialEq, Eq, Copy, Clone)]
+#[derive(PartialEq, Eq, Copy, Clone, Debug, PartialOrd, Ord)]
 pub enum ItemType {
     Weapon,
     Armor,
     Ring,
 }
 
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone, Debug, PartialOrd, Ord)]
 pub struct Item {
     name: String,
     itype: ItemType,
@@ -136,16 +136,17 @@ pub fn item_shop() -> Vec<Item> {
     ret.push(Item::armor("Platemail", 102, 5));
 
     // rings
-    ret.push(Item::ring("Damage +1", 25, 1, 0));
-    ret.push(Item::ring("Damage +2", 50, 2, 0));
-    ret.push(Item::ring("Damage +3", 100, 3, 0));
     ret.push(Item::ring("Defense +1", 20, 0, 1));
+    ret.push(Item::ring("Damage +1", 25, 1, 0));
     ret.push(Item::ring("Defense +2", 40, 0, 2));
+    ret.push(Item::ring("Damage +2", 50, 2, 0));
     ret.push(Item::ring("Defense +3", 80, 0, 3));
+    ret.push(Item::ring("Damage +3", 100, 3, 0));
 
     ret
 }
 
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub struct Loadout {
     weapon: Item,
     armor: Option<Item>,
@@ -201,11 +202,15 @@ impl Loadout {
     }
 }
 
+#[derive(Clone)]
 pub struct LoadoutGenerator {
     current: Loadout,
     weapons: Vec<Item>,
     armors: Vec<Item>,
+    armor: Option<usize>,
     rings: Vec<Item>,
+    ring_l: Option<usize>,
+    ring_r: Option<usize>,
 }
 
 impl LoadoutGenerator {
@@ -221,13 +226,115 @@ impl LoadoutGenerator {
                 ItemType::Ring => r.push(item),
             }
         }
-        let initial = Loadout::new(w.first().unwrap().to_owned(), None, None, None).unwrap();
+
+        w.reverse();
+        // don't reverse the armor because we also access it by index
+        // a.reverse();
+        // don't reverse the rings because we access them differently.
+        // r.reverse();
+
+        // now we can always get the next item with a simple `.pop()`
+        let dagger = w.pop().unwrap();
+        let initial = Loadout::new(dagger, None, None, None).unwrap();
 
         LoadoutGenerator {
             current: initial,
             weapons: w,
             armors: a,
             rings: r,
+            ring_l: None,
+            ring_r: None,
+            armor: None,
+        }
+    }
+
+    fn upgrade_weapon(&self) -> Option<(Loadout, Vec<Item>)> {
+        let mut weapons = self.weapons.clone();
+        match weapons.pop() {
+            None => None,
+            Some(weapon) => {
+                let mut ret = self.current.clone();
+                ret.weapon = weapon.clone();
+                ret.armor = None;
+                ret.ring_l = None;
+                ret.ring_r = None;
+                Some((ret, weapons))
+            }
+        }
+    }
+
+    fn upgrade_armor(&self) -> Option<(Loadout, Option<usize>)> {
+        if self.armors.len() == 0 {
+            return None;
+        }
+        let mut ret = self.current.clone();
+        if self.armor.is_none() {
+            ret.armor = Some(self.armors[0].clone());
+            return Some((ret, Some(0)));
+        }
+        if let Some(sa) = self.armor {
+            if sa == self.armors.len() - 1 {
+                return None;
+            } else {
+                ret.armor = Some(self.armors[sa + 1].clone());
+                return Some((ret, Some(sa + 1)));
+            }
+        }
+        None
+    }
+
+    fn upgrade_rings(&self) -> Option<(Loadout, Option<usize>, Option<usize>)> {
+        if self.rings.len() == 0 {
+            return None;
+        } else if self.rings.len() == 1 && self.ring_r == Some(0) {
+            return None;
+        } else if self.ring_r == Some(self.rings.len() - 1) && self.ring_l == Some(self.rings.len() - 2) {
+            return None;
+        }
+
+        let mut ret = self.current.clone();
+        if self.ring_r.is_none() {
+            ret.ring_r = Some(self.rings[0].clone());
+            return Some((ret, None, Some(0)));
+        }
+
+        let srr = self.ring_r.to_owned().unwrap();
+
+        if srr == self.rings.len() - 1 {
+            if self.ring_l.is_none() {
+                ret.ring_l = Some(self.rings[0].clone());
+                return Some((ret, Some(0), Some(srr)));
+            } else {
+                // only increase ring_l because ring_r is already maxed out
+                let srl = self.ring_l.to_owned().unwrap();
+                ret.ring_l = Some(self.rings[srl + 1].clone());
+                return Some((ret, Some(srl), Some(srr)));
+            }
+        }
+
+        // srr is not None or max
+        // we have to choose between two options:
+        //  - increment left
+        //  - increment right, take off left
+        let inc_right = self.rings[srr + 1].cost - self.rings[srr].cost;
+        let inc_left = if self.ring_l.is_none() {
+            self.rings[0].cost
+        } else {
+            let srl = self.ring_l.to_owned().unwrap();
+            self.rings[srl + 1].cost - self.rings[srl].cost
+        };
+
+        if (self.ring_l.is_some() && self.ring_l.to_owned().unwrap() == srr - 1) ||
+           inc_right < inc_left {
+            // increase the ring on the right side and remove the left ring
+            ret.ring_l = None;
+            ret.ring_r = Some(self.rings[srr + 1].clone());
+            Some((ret, None, Some(srr + 1)))
+        } else {
+            // just increment the left ring
+            let srl = self.ring_l.to_owned().unwrap();
+            ret.ring_l = Some(self.rings[srl + 1].clone());
+            Some((ret, Some(srl), Some(srr)))
         }
     }
 }
@@ -236,7 +343,76 @@ impl Iterator for LoadoutGenerator {
     type Item = Loadout;
 
     fn next(&mut self) -> Option<Loadout> {
-        unimplemented!();
+        // The goal here is to always return the cheapest equipment upgrade, even if that means
+        // downgrading one piece of equipment, possibly more than once, in order to upgrade
+        // something else.
+        //
+        // At the same time, we want to iterate deterministically through the items and return
+        // each possible loadout only once.
+        //
+        // As an implementation detail to help reduce the options applied, we determine that the
+        // ring on the right hand is always more valuable than the ring on the left.
+
+        // start by figuring the costs of upgrade of each category: weapon, armor, ring
+
+        let wpn_up = self.upgrade_weapon();
+        let arm_up = self.upgrade_armor();
+        let rng_up = self.upgrade_rings();
+
+        if wpn_up == None && arm_up == None && rng_up == None {
+            return None;
+        }
+
+        let mut costs = Vec::new();
+        if let Some((ref wpns, _)) = wpn_up {
+            costs.push(wpns.cost());
+        }
+        if let Some((ref arms, _)) = arm_up {
+            costs.push(arms.cost());
+        }
+        if let Some((ref rngs, _, _)) = rng_up {
+            costs.push(rngs.cost());
+        }
+
+        let min_cost = costs.iter()
+                            .min()
+                            .unwrap()
+                            .clone();
+
+        if let Some((loadout, left_ring_index, right_ring_index)) = rng_up {
+            if loadout.cost() == min_cost {
+                // improve our rings
+                self.ring_l = left_ring_index;
+                self.ring_r = right_ring_index;
+                self.current = loadout.clone();
+                return Some(loadout);
+            }
+        }
+
+        if let Some((loadout, armor_index)) = arm_up {
+            if loadout.cost() == min_cost {
+                // improve our armor
+                self.armor = armor_index;
+                self.current = loadout.clone();
+                return Some(loadout);
+            }
+        }
+
+        if let Some((loadout, wpns)) = wpn_up {
+            if loadout.cost() == min_cost {
+                // improve our weapons
+                self.weapons = wpns;
+                self.current = loadout.clone();
+                // reset the other fields
+                self.ring_l = None;
+                self.ring_r = None;
+                self.armor = None;
+
+                return Some(loadout);
+            }
+        }
+
+        panic!("Failed to calculate min costs correctly in LoadoutGenerator.next()");
     }
 }
 
