@@ -134,7 +134,7 @@
 //! mana recharge effects as "spending" negative mana.)
 
 pub mod effects;
-use effects::{Magic, EffectImpl};
+use effects::{Magic, Effects, EffectImpl};
 use effects::magic_missile::MagicMissile;
 use effects::drain::Drain;
 use effects::shield::Shield;
@@ -181,17 +181,137 @@ impl Character {
 
 #[derive(PartialEq, Eq, Clone)]
 pub struct Arena {
+    turn: CharacterType,
     player: Character,
     boss: Character,
     effects: Vec<EffectImpl>,
+    mana_spent: u16,
 }
 
-impl Arena {
-    pub fn new() -> Arena {
+impl Default for Arena {
+    fn default() -> Arena {
         Arena {
+            turn: CharacterType::Player,
             player: Character::player(),
             boss: Character::boss(),
             effects: Vec::new(),
+            mana_spent: 0,
+        }
+    }
+}
+
+impl Arena {
+    pub fn new(player: Character, boss: Character) -> Arena {
+        Arena {
+            player: player,
+            boss: boss,
+            ..Arena::default()
+        }
+    }
+
+    fn future(&self) -> Arena {
+        let mut ret = self.clone();
+        ret.turn = match ret.turn {
+            CharacterType::Player => CharacterType::Boss,
+            CharacterType::Boss => CharacterType::Player,
+        };
+        ret
+    }
+
+    fn attempt_spell(&self, spell: &Magic) -> Option<Arena> {
+        if self.player.mana >= spell.cost() {
+            let mut future = self.future();
+            future.mana_spent += spell.cost();
+            spell.on_cast(&mut future.player, &mut future.boss);
+            if spell.ttl() > 0 {
+                future.effects.push(spell.to_impl());
+            }
+            Some(future)
+        } else {
+            None
+        }
+    }
+
+    /// Take one turn.
+    ///
+    /// Returns Ok(vector of future Arenas) if the game should continue.
+    /// Returns Err(victor) if the game should end.
+    ///
+    /// Game should end if either character runs out of hit points or the player character
+    /// has insufficient mana to cast any spell on their turn.
+    pub fn turn(&mut self) -> Result<Vec<Arena>, CharacterType> {
+        // Effects apply at the start of each player's turn.
+        for effectimpl in &self.effects {
+            let ei = effectimpl.etype.clone();
+            let mut effect : Box<Magic> = match ei {
+                Effects::Drain => Box::new(Drain::from_ei(effectimpl.clone())),
+                Effects::MagicMissile => Box::new(MagicMissile::from_ei(effectimpl.clone())),
+                Effects::Poison => Box::new(Poison::from_ei(effectimpl.clone())),
+                Effects::Recharge => Box::new(Recharge::from_ei(effectimpl.clone())),
+                Effects::Shield => Box::new(Shield::from_ei(effectimpl.clone())),
+            };
+
+            effect.per_turn(&mut self.player, &mut self.boss);
+        }
+        // After application, remove those who are out of life.
+        self.effects.retain(|ef| ef.ttl > 0);
+
+        match self.turn {
+            CharacterType::Boss => {
+                if self.boss.hp > 0 {
+                    let damage = if self.boss.damage > self.player.armor {self.boss.damage - self.player.armor} else {1};
+                    if self.player.hp > damage {
+                        self.player.hp -= damage;
+                        let mut ret = self.clone();
+                        ret.turn = CharacterType::Player;
+                        Ok(vec![self.future()])
+                    } else {
+                        // damage >= self.player.hp
+                        self.player.hp = 0;
+                        Err(CharacterType::Boss)
+                    }
+                } else {
+                    // boss died, turn ends without switching character.
+                    Err(CharacterType::Player)
+                }
+            },
+            CharacterType::Player => {
+                if self.player.hp > 0 {
+                    // For each spell we can cast, add a future in which we cast it
+                    let mut ret = Vec::new();
+                    //Drain
+                    let spell = Drain::new();
+                    if let Some(future) = self.attempt_spell(&spell) {
+                        ret.push(future)
+                    }
+                    //Magic Missile
+                    let spell = MagicMissile::new();
+                    if let Some(future) = self.attempt_spell(&spell) {
+                        ret.push(future)
+                    }
+                    //Poison
+                    let spell = Poison::new();
+                    if let Some(future) = self.attempt_spell(&spell) {
+                        ret.push(future)
+                    }
+                    //Recharge
+                    let spell = Recharge::new();
+                    if let Some(future) = self.attempt_spell(&spell) {
+                        ret.push(future)
+                    }
+                    //Shield
+                    let spell = Shield::new();
+                    if let Some(future) = self.attempt_spell(&spell) {
+                        ret.push(future)
+                    }
+                    match ret.len() {
+                        0 => Err(CharacterType::Boss),
+                        _ => Ok(ret),
+                    }
+                } else {
+                    Err(CharacterType::Boss)
+                }
+            },
         }
     }
 }

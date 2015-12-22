@@ -19,6 +19,10 @@ impl Drain {
             },
         }
     }
+
+    pub fn from_ei(ei: EffectImpl) -> Drain {
+        Drain { ei: ei }
+    }
 }
 
 impl Magic for Drain {

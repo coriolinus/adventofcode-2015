@@ -19,6 +19,10 @@ impl Poison {
             },
         }
     }
+
+    pub fn from_ei(ei: EffectImpl) -> Poison {
+        Poison { ei: ei }
+    }
 }
 
 impl Magic for Poison {

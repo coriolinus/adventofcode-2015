@@ -19,6 +19,10 @@ impl MagicMissile {
             },
         }
     }
+
+    pub fn from_ei(ei: EffectImpl) -> MagicMissile {
+        MagicMissile { ei: ei }
+    }
 }
 
 impl Magic for MagicMissile {

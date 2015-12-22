@@ -19,6 +19,10 @@ impl Shield {
             },
         }
     }
+
+    pub fn from_ei(ei: EffectImpl) -> Shield {
+        Shield { ei: ei }
+    }
 }
 
 impl Magic for Shield {

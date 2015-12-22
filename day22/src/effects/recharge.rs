@@ -19,6 +19,10 @@ impl Recharge {
             },
         }
     }
+
+    pub fn from_ei(ei: EffectImpl) -> Recharge {
+        Recharge { ei: ei }
+    }
 }
 
 impl Magic for Recharge {

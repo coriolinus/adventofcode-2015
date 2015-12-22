@@ -17,10 +17,10 @@ pub enum Effects {
 
 #[derive(PartialEq, Eq, Clone)]
 pub struct EffectImpl {
-    etype: Effects,
-    name: String,
-    mana_cost: u16,
-    ttl: u8,
+    pub name: String,
+    pub etype: Effects,
+    pub ttl: u8,
+    pub mana_cost: u16,
 }
 
 
@@ -37,4 +37,14 @@ pub trait Magic {
     ///
     /// Responsible for decreasing its own time to live, etc.
     fn per_turn(&mut self, _: &mut Character, _: &mut Character) {}
+
+    /// Mana cost of this spell to cast
+    fn cost(&self) -> u16 {
+        self.to_impl().mana_cost
+    }
+
+    /// Time to Live (turns remaining during which this spell has effects)
+    fn ttl(&self) -> u8 {
+        self.to_impl().ttl
+    }
 }
