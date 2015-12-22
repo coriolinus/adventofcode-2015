@@ -79,6 +79,73 @@ pub struct Item {
     armor: u32,
 }
 
+impl Item {
+    fn bare(itype: ItemType) -> Item {
+        Item {
+            name: "".to_string(),
+            itype: itype,
+            cost: 0,
+            damage: 0,
+            armor: 0,
+        }
+    }
+
+    fn weapon(name: &str, cost: u32, damage: u32) -> Item {
+        Item {
+            name: name.to_string(),
+            damage: damage,
+            cost: cost,
+            ..Item::bare(ItemType::Weapon)
+        }
+    }
+
+    fn armor(name: &str, cost: u32, armor: u32) -> Item {
+        Item {
+            name: name.to_string(),
+            armor: armor,
+            cost: cost,
+            ..Item::bare(ItemType::Armor)
+        }
+    }
+
+    fn ring(name: &str, cost: u32, damage: u32, armor: u32) -> Item {
+        Item {
+            name: name.to_string(),
+            damage: damage,
+            armor: armor,
+            cost: cost,
+            ..Item::bare(ItemType::Ring)
+        }
+    }
+}
+
+pub fn item_shop() -> Vec<Item> {
+    let mut ret = Vec::new();
+    // weapons
+    ret.push(Item::weapon("Dagger", 8, 4));
+    ret.push(Item::weapon("Shortsword", 10, 5));
+    ret.push(Item::weapon("Warhammer", 25, 6));
+    ret.push(Item::weapon("Longsword", 40, 7));
+    ret.push(Item::weapon("Greataxe", 74, 8));
+
+    // armor
+    ret.push(Item::armor("Leather", 13, 1));
+    ret.push(Item::armor("Chainmail", 31, 2));
+    ret.push(Item::armor("Splintmail", 53, 3));
+    ret.push(Item::armor("Bandedmail", 75, 4));
+    ret.push(Item::armor("Platemail", 102, 5));
+
+    // rings
+    ret.push(Item::ring("Damage +1", 25, 1, 0));
+    ret.push(Item::ring("Damage +2", 50, 2, 0));
+    ret.push(Item::ring("Damage +3", 100, 3, 0));
+    ret.push(Item::ring("Defense +1", 20, 0, 1));
+    ret.push(Item::ring("Defense +2", 40, 0, 2));
+    ret.push(Item::ring("Defense +3", 80, 0, 3));
+
+    ret
+}
+
 pub struct Loadout {
     weapon: Item,
     armor: Option<Item>,
@@ -131,6 +198,45 @@ impl Loadout {
 
     pub fn armor(&self) -> u32 {
         self.as_vec().iter().fold(0, |acc, ref item| acc + item.armor)
+    }
+}
+
+pub struct LoadoutGenerator {
+    current: Loadout,
+    weapons: Vec<Item>,
+    armors: Vec<Item>,
+    rings: Vec<Item>,
+}
+
+impl LoadoutGenerator {
+    pub fn new() -> LoadoutGenerator {
+        let mut w = Vec::new();
+        let mut a = Vec::new();
+        let mut r = Vec::new();
+
+        for item in item_shop() {
+            match item.itype {
+                ItemType::Weapon => w.push(item),
+                ItemType::Armor => a.push(item),
+                ItemType::Ring => r.push(item),
+            }
+        }
+        let initial = Loadout::new(w.first().unwrap().to_owned(), None, None, None).unwrap();
+
+        LoadoutGenerator {
+            current: initial,
+            weapons: w,
+            armors: a,
+            rings: r,
+        }
+    }
+}
+
+impl Iterator for LoadoutGenerator {
+    type Item = Loadout;
+
+    fn next(&mut self) -> Option<Loadout> {
+        unimplemented!();
     }
 }
 
@@ -190,6 +296,8 @@ pub fn combat(player: Character, boss: Character) -> Character {
         respondent = temp;
     }
 }
+
+
 
 #[cfg(test)]
 mod tests {
