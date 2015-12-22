@@ -567,6 +567,30 @@ pub fn cheapest_winning_loadout(items: &Vec<Item>) -> Option<(Loadout, Character
     cheapest
 }
 
+pub fn priciest_losing_loadout(items: &Vec<Item>) -> Option<(Loadout, Character)> {
+    // println!("Into cheapest_winning_loadout");
+    let mut priciest = None;
+    for loadout in LoadoutGenerator::new(items) {
+        let winner = combat(Character::player(&loadout), Character::boss());
+        if winner.ctype == CharacterType::Boss {
+            if priciest.is_none() {
+                priciest = Some((loadout.clone(), Character::player(&loadout)));
+            } else {
+                let mut this_is_cheaper = false;
+                if let Some((ref l, _)) = priciest {
+                    if loadout.cost() > l.cost() {
+                        this_is_cheaper = true;
+                    }
+                }
+                if this_is_cheaper {
+                    priciest = Some((loadout.clone(), Character::player(&loadout)))
+                }
+            }
+        }
+    }
+    priciest
+}
+
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum CharacterType {
     Player,
