@@ -61,3 +61,156 @@
 //!
 //! You have `100` hit points. The boss's actual stats are in your puzzle input. What is the least
 //! amount of gold you can spend and still win the fight?
+
+
+#[derive(PartialEq, Eq, Copy, Clone)]
+pub enum ItemType {
+    Weapon,
+    Armor,
+    Ring,
+}
+
+#[derive(PartialEq, Eq, Clone)]
+pub struct Item {
+    name: String,
+    itype: ItemType,
+    cost: u32,
+    damage: u32,
+    armor: u32,
+}
+
+pub struct Loadout {
+    weapon: Item,
+    armor: Option<Item>,
+    ring_l: Option<Item>,
+    ring_r: Option<Item>,
+}
+
+impl Loadout {
+    pub fn new(weapon: Item,
+               armor: Option<Item>,
+               ring_l: Option<Item>,
+               ring_r: Option<Item>)
+               -> Option<Loadout> {
+        if weapon.itype != ItemType::Weapon {
+            return None;
+        }
+        if armor.is_some() && armor.clone().unwrap().itype != ItemType::Armor {
+            return None;
+        }
+        if ring_l.is_some() && ring_l.clone().unwrap().itype != ItemType::Ring {
+            return None;
+        }
+        if ring_r.is_some() && ring_r.clone().unwrap().itype != ItemType::Ring {
+            return None;
+        }
+        Some(Loadout {
+            weapon: weapon,
+            armor: armor,
+            ring_l: ring_l,
+            ring_r: ring_r,
+        })
+    }
+
+    pub fn as_vec(&self) -> Vec<Item> {
+        vec![&Some(self.weapon.clone()), &self.armor, &self.ring_l, &self.ring_r]
+            .iter()
+            .filter(|ref i| i.is_some())
+            .cloned()
+            .map(|i| i.clone().unwrap())
+            .collect()
+    }
+
+    pub fn cost(&self) -> u32 {
+        self.as_vec().iter().fold(0, |acc, ref item| acc + item.cost)
+    }
+
+    pub fn damage(&self) -> u32 {
+        self.as_vec().iter().fold(0, |acc, ref item| acc + item.damage)
+    }
+
+    pub fn armor(&self) -> u32 {
+        self.as_vec().iter().fold(0, |acc, ref item| acc + item.armor)
+    }
+}
+
+#[derive(PartialEq, Eq, Clone, Debug)]
+pub enum CharacterType {
+    Player,
+    Boss,
+}
+
+pub struct Character {
+    ctype: CharacterType,
+    hp: u32,
+    damage: u32,
+    armor: u32,
+}
+
+
+impl Character {
+    /// The boss, as given in the puzzle input
+    pub fn boss() -> Character {
+        Character {
+            ctype: CharacterType::Boss,
+            hp: 104,
+            damage: 8,
+            armor: 1,
+        }
+    }
+
+    pub fn player(loadout: &Loadout) -> Character {
+        Character {
+            ctype: CharacterType::Player,
+            hp: 100,
+            damage: loadout.damage(),
+            armor: loadout.armor(),
+        }
+    }
+}
+
+pub fn combat(player: Character, boss: Character) -> Character {
+    let mut agent = player;
+    let mut respondent = boss;
+
+    loop {
+        // calc damage
+        let mut damage = agent.damage - respondent.armor;
+        if damage < 1 {
+            damage = 1;
+        }
+        // apply
+        respondent.hp -= damage;
+        if respondent.hp <= 0 {
+            return agent;
+        }
+        // swap roles
+        let temp = agent;
+        agent = respondent;
+        respondent = temp;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_example_combat() {
+        let player = Character {
+            ctype: CharacterType::Player,
+            hp: 8,
+            damage: 5,
+            armor: 5,
+        };
+        let boss = Character {
+            ctype: CharacterType::Boss,
+            hp: 12,
+            damage: 7,
+            armor: 2,
+        };
+        let winner = combat(player, boss);
+        assert_eq!(winner.ctype, CharacterType::Player);
+        assert_eq!(winner.hp, 2);
+    }
+}
