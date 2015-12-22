@@ -141,6 +141,8 @@ use effects::shield::Shield;
 use effects::poison::Poison;
 use effects::recharge::Recharge;
 
+use std::collections::VecDeque;
+
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub enum CharacterType {
     Player,
@@ -157,6 +159,14 @@ pub struct Character {
 }
 
 impl Character {
+    pub fn makeboss(hp: u8, damage: u8) -> Character {
+        Character {
+            hp: hp,
+            damage: damage,
+            ..Character::boss()
+        }
+    }
+
     /// The boss, as given in the puzzle input
     pub fn boss() -> Character {
         Character {
@@ -165,6 +175,14 @@ impl Character {
             damage: 8,
             armor: 0,
             mana: 0,
+        }
+    }
+
+    pub fn makeplayer(hp: u8, mana: u16) -> Character {
+        Character {
+            hp: hp,
+            mana: mana,
+            ..Character::player()
         }
     }
 
@@ -185,7 +203,8 @@ pub struct Arena {
     player: Character,
     boss: Character,
     effects: Vec<EffectImpl>,
-    mana_spent: u16,
+    pub mana_spent: u16,
+    last_spell: Option<Effects>,
 }
 
 impl Default for Arena {
@@ -195,7 +214,8 @@ impl Default for Arena {
             player: Character::player(),
             boss: Character::boss(),
             effects: Vec::new(),
-            mana_spent: 0,
+             mana_spent: 0,
+            last_spell: None,
         }
     }
 }
@@ -211,6 +231,7 @@ impl Arena {
 
     fn future(&self) -> Arena {
         let mut ret = self.clone();
+        ret.last_spell = None;
         ret.turn = match ret.turn {
             CharacterType::Player => CharacterType::Boss,
             CharacterType::Boss => CharacterType::Player,
@@ -221,6 +242,7 @@ impl Arena {
     fn attempt_spell(&self, spell: &Magic) -> Option<Arena> {
         if self.player.mana >= spell.cost() {
             let mut future = self.future();
+            future.last_spell = Some(spell.etype());
             future.mana_spent += spell.cost();
             spell.on_cast(&mut future.player, &mut future.boss);
             if spell.ttl() > 0 {
@@ -313,5 +335,150 @@ impl Arena {
                 }
             },
         }
+    }
+}
+
+pub fn breadth_first_victory_search(arena: Arena) -> Arena {
+    let mut found_victory = false;
+    let mut candidates = Vec::new();
+    let mut buffer = VecDeque::new();
+    buffer.push_back(arena);
+    while !buffer.is_empty() {
+        let mut arena = buffer.pop_front().unwrap();
+        match arena.turn() {
+            Ok(futures) => {
+                if ! found_victory {
+                    buffer.extend(futures);
+                }
+            },
+            Err(victor) => {
+                if victor == CharacterType::Player {
+                    found_victory = true;
+                    candidates.push(arena);
+                }
+            }
+        }
+    }
+    candidates.iter().fold(None, |acc,  c| match acc {
+        None => Some(c),
+        Some(oc) => Some(if oc.mana_spent <= c.mana_spent {oc} else {c}),
+    }).unwrap().clone()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use super::effects::Effects;
+
+    fn expect_spell(oarena: Option<Arena>, spell: Effects) -> Option<Arena> {
+        match oarena {
+            None => None,
+            Some(mut arena) => {
+                let res = arena.turn();
+                match res {
+                    Err(_) => None,
+                    Ok(futures) => {
+                        for f in futures {
+                            if f.last_spell == Some(spell.clone()) {
+                                return Some(f);
+                            }
+                        }
+                        None
+                    },
+                }
+            }
+        }
+    }
+
+    fn boss_turn(oarena: Option<Arena>) -> Option<Arena> {
+        match oarena {
+            None => None,
+            Some(mut arena) => {
+                let res = arena.turn();
+                match res {
+                    Err(_) => None,
+                    Ok(futures) => {
+                        match futures.len() {
+                            1 => Some(futures[0].clone()),
+                            _ => None,
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fn expect_turn(arena: &Option<Arena>, turn: CharacterType, player_hp: u8, player_armor: u8, player_mana: u16, boss_hp: u8) {
+        assert!(arena.is_some());
+        let arena = arena.clone().unwrap();
+        assert_eq!(arena.turn, turn);
+        assert_eq!(arena.player.hp, player_hp);
+        assert_eq!(arena.player.armor, player_armor);
+        assert_eq!(arena.player.mana, player_mana);
+        assert_eq!(arena.boss.hp, boss_hp);
+    }
+
+    fn expect_victor(oarena: Option<Arena>, victor: CharacterType) {
+        assert!(oarena.is_some());
+        let mut arena = oarena.unwrap();
+        let res = arena.turn();
+        if let Err(victor_f) = res {
+            assert_eq!(victor, victor_f);
+        } else {
+            panic!("Didn't find victor {:?} when expected", victor);
+        }
+    }
+
+    #[test]
+    fn test_first_example() {
+        let player = Character::makeplayer(10, 250);
+        let boss = Character::makeboss(13, 8);
+
+        let pt = CharacterType::Player;
+        let bt = CharacterType::Boss;
+
+        let mut arena = Some(Arena::new(player, boss));
+        expect_turn(&arena, pt, 10, 0, 250, 13);
+        arena = expect_spell(arena, Effects::Poison);
+        expect_turn(&arena, bt, 10, 0, 77, 13);
+        arena = boss_turn(arena);
+        expect_turn(&arena, pt, 2, 0, 77, 10);
+        arena = expect_spell(arena, Effects::MagicMissile);
+        expect_victor(arena, pt);
+    }
+
+    #[test]
+    fn test_second_example() {
+        let player = Character::makeplayer(10, 250);
+        let boss = Character::makeboss(14, 8);
+
+        let pt = CharacterType::Player;
+        let bt = CharacterType::Boss;
+
+        let mut arena = Some(Arena::new(player, boss));
+        expect_turn(&arena, pt, 10, 0, 250, 14);
+        arena = expect_spell(arena, Effects::Recharge);
+        expect_turn(&arena, bt, 10, 0, 21, 14);
+        arena = boss_turn(arena);
+
+        expect_turn(&arena, pt, 2, 0, 122, 14);
+        arena = expect_spell(arena, Effects::Shield);
+        expect_turn(&arena, bt, 2, 7, 110, 14);
+        arena = boss_turn(arena);
+
+        expect_turn(&arena, pt, 1, 7, 211, 14);
+        arena = expect_spell(arena, Effects::Drain);
+        expect_turn(&arena, bt, 3, 7, 239, 12);
+        arena = boss_turn(arena);
+
+        expect_turn(&arena, pt, 2, 7, 340, 12);
+        // arena = expect_spell(arena, Effects::Poison);
+        // expect_turn(&arena, bt, 2, 7, 167, 12);
+        // arena = boss_turn(arena);
+
+        // // expect_turn(&arena, pt, 1, 7, 167, 9);
+        // arena = expect_spell(arena, Effects::MagicMissile);
+        // expect_victor(arena, pt);
+
     }
 }

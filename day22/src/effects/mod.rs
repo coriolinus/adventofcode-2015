@@ -6,7 +6,7 @@ pub mod shield;
 pub mod poison;
 pub mod recharge;
 
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub enum Effects {
     MagicMissile,
     Drain,
@@ -46,5 +46,9 @@ pub trait Magic {
     /// Time to Live (turns remaining during which this spell has effects)
     fn ttl(&self) -> u8 {
         self.to_impl().ttl
+    }
+
+    fn etype(&self) -> Effects {
+        self.to_impl().etype
     }
 }
