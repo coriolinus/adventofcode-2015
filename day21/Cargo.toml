@@ -12,4 +12,3 @@ name = "day21bin"
 path = "src/bin.rs"
 
 [dependencies]
-util = { path = "../util"}

@@ -359,6 +359,7 @@ pub struct LoadoutGenerator {
 
 impl LoadoutGenerator {
     pub fn new(items: &Vec<Item>) -> LoadoutGenerator {
+        // println!("Into LoadoutGenerator::new()");
         let mut w = Vec::new();
         let mut a = Vec::new();
         let mut r = Vec::new();
@@ -449,6 +450,7 @@ impl LoadoutGenerator {
 
     /// Increment the left ring index. Return True if it rolled over and is now None, otherwise False.
     fn increment_ring_l(&mut self) -> bool {
+        // println!("Entered <LoadoutGenerator>.increment_ring_l()");
         if self.ring_l_index.is_none() {
             if self.rings.len() > 0 {
                 self.ring_l_index = Some(0);
@@ -457,9 +459,12 @@ impl LoadoutGenerator {
                 return true;
             }
         } else {
+            // println!(" ring_l_index: {:?}", self.ring_l_index);
+            // println!(" ring_r_index: {:?}", self.ring_r_index);
             let slri = self.ring_l_index.clone().unwrap();
-            let srri = self.ring_r_index.clone().unwrap();
-            if slri < self.rings.len() - 1 && slri < srri - 1 {
+            // let srri = self.ring_r_index.clone().unwrap();
+            // if slri < self.rings.len() - 1 && slri < srri - 1 {
+            if slri < self.rings.len() - 1 {
                 self.ring_l_index = Some(slri + 1);
                 return false;
             } else {
@@ -476,6 +481,7 @@ impl Iterator for LoadoutGenerator {
     ///
     /// Ordering is arbitrary.
     fn next(&mut self) -> Option<Loadout> {
+        // println!("Into <LoadoutGenerator>.next()");
         // we have to have a weapon
         if self.weapons.is_empty() {
             return None;
@@ -511,16 +517,34 @@ impl Iterator for LoadoutGenerator {
                         // slri == self.rings.len()
                         // this should never happen, because it would break the condition
                         // that self.ring_r_index is alway > self.ring_l_index.
-                        panic!("Precondition failed: ring_r_index > ring_l_index")
+                        //
+                        // however, it does in fact happen because we can't guard against that
+                        // in self.increment_ring_l because when that function is called,
+                        // self.ring_r_index is guaranteed to be None.
+                        //
+                        // How about, instead of panicing, we just recurse a little and skip this
+                        // result?
+                        return self.next();
                     }
                 }
             }
         }
+        // println!("  Returning `weapon_index`, `armor_index`, `ring_r_index`, `ring_l_index` as");
+        // println!("             {} ({})           {:?} ({})    {:?} ({})     {:?} ({})",
+        //         self.weapon_index,
+        //         self.weapons.len(),
+        //         self.armor_index,
+        //         self.armors.len(),
+        //         self.ring_r_index,
+        //         self.rings.len(),
+        //         self.ring_l_index,
+        //         self.rings.len());
         Some(self.loadout_from_indices())
     }
 }
 
 pub fn cheapest_winning_loadout(items: &Vec<Item>) -> Option<(Loadout, Character)> {
+    // println!("Into cheapest_winning_loadout");
     let mut cheapest = None;
     for loadout in LoadoutGenerator::new(items) {
         let winner = combat(Character::player(&loadout), Character::boss());
@@ -549,6 +573,7 @@ pub enum CharacterType {
     Boss,
 }
 
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub struct Character {
     ctype: CharacterType,
     hp: u32,
@@ -584,14 +609,17 @@ pub fn combat(player: Character, boss: Character) -> Character {
 
     loop {
         // calc damage
-        let mut damage = agent.damage - respondent.armor;
-        if damage < 1 {
-            damage = 1;
-        }
+        let damage = if respondent.armor < agent.damage {
+            agent.damage - respondent.armor
+        } else {
+            1
+        };
+
         // apply
-        respondent.hp -= damage;
-        if respondent.hp <= 0 {
+        if damage >= respondent.hp {
             return agent;
+        } else {
+            respondent.hp -= damage;
         }
         // swap roles
         let temp = agent;
@@ -623,11 +651,5 @@ mod tests {
         let winner = combat(player, boss);
         assert_eq!(winner.ctype, CharacterType::Player);
         assert_eq!(winner.hp, 2);
-    }
-
-    #[test]
-    fn test_loadout_generator() {
-        let lg = LoadoutGenerator::new();
-        unimplemented!()
     }
 }
