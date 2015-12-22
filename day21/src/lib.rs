@@ -358,21 +358,21 @@ pub struct LoadoutGenerator {
 }
 
 impl LoadoutGenerator {
-    pub fn new() -> LoadoutGenerator {
+    pub fn new(items: &Vec<Item>) -> LoadoutGenerator {
         let mut w = Vec::new();
         let mut a = Vec::new();
         let mut r = Vec::new();
 
-        for item in item_shop() {
+        for item in items {
             match item.itype {
-                ItemType::Weapon => w.push(item),
-                ItemType::Armor => a.push(item),
-                ItemType::Ring => r.push(item),
+                ItemType::Weapon => w.push(item.clone()),
+                ItemType::Armor => a.push(item.clone()),
+                ItemType::Ring => r.push(item.clone()),
             }
         }
 
         let dagger = w.first().unwrap().clone();
-        let initial = Loadout::new(dagger, None, None, None).unwrap();
+        let initial = Loadout::new(dagger.to_owned(), None, None, None).unwrap();
 
         LoadoutGenerator {
             current: initial,
@@ -518,6 +518,29 @@ impl Iterator for LoadoutGenerator {
         }
         Some(self.loadout_from_indices())
     }
+}
+
+pub fn cheapest_winning_loadout(items: &Vec<Item>) -> Option<(Loadout, Character)> {
+    let mut cheapest = None;
+    for loadout in LoadoutGenerator::new(items) {
+        let winner = combat(Character::player(&loadout), Character::boss());
+        if winner.ctype == CharacterType::Player {
+            if cheapest.is_none() {
+                cheapest = Some((loadout, winner));
+            } else {
+                let mut this_is_cheaper = false;
+                if let Some((ref l, _)) = cheapest {
+                    if loadout.cost() < l.cost() {
+                        this_is_cheaper = true;
+                    }
+                }
+                if this_is_cheaper {
+                    cheapest = Some((loadout, winner))
+                }
+            }
+        }
+    }
+    cheapest
 }
 
 #[derive(PartialEq, Eq, Clone, Debug)]
