@@ -1,6 +1,10 @@
 use super::Character;
 
-pub mod MagicMissile;
+pub mod magic_missile;
+pub mod drain;
+pub mod shield;
+pub mod poison;
+pub mod recharge;
 
 pub enum Effects {
     MagicMissile,
@@ -26,5 +30,5 @@ pub trait Magic {
     /// This happens per turn, beginning the turn after the player casts the spell.
     ///
     /// Responsible for decreasing its own time to live, etc.
-    fn per_turn(&self, _: &mut Character, _: &mut Character) {}
+    fn per_turn(&mut self, _: &mut Character, _: &mut Character) {}
 }
