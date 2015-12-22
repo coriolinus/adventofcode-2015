@@ -350,6 +350,10 @@ pub struct LoadoutGenerator {
     weapons: Vec<Item>,
     armors: Vec<Item>,
     rings: Vec<Item>,
+    weapon_index: usize,
+    armor_index: Option<usize>,
+    ring_l_index: Option<usize>,
+    ring_r_index: Option<usize>,
     first_call: bool,
 }
 
@@ -375,82 +379,144 @@ impl LoadoutGenerator {
             weapons: w,
             armors: a,
             rings: r,
+            weapon_index: 0,
+            armor_index: None,
+            ring_l_index: None,
+            ring_r_index: None,
             first_call: true,
+        }
+    }
+
+    fn loadout_from_indices(&self) -> Loadout {
+        Loadout {
+            weapon: self.weapons[self.weapon_index].clone(),
+            armor: match self.armor_index {
+                None => None,
+                Some(i) => Some(self.armors[i].clone()),
+            },
+            ring_l: match self.ring_l_index {
+                None => None,
+                Some(i) => Some(self.rings[i].clone()),
+            },
+            ring_r: match self.ring_r_index {
+                None => None,
+                Some(i) => Some(self.rings[i].clone()),
+            },
+        }
+    }
+
+    /// Increment the armor index. Return True if it rolled over and is now None, otherwise False.
+    fn increment_armor(&mut self) -> bool {
+        if self.armor_index.is_none() {
+            if self.armors.len() > 0 {
+                self.armor_index = Some(0);
+                return false;
+            } else {
+                return true;
+            }
+        } else {
+            let sai = self.armor_index.clone().unwrap();
+            if sai < self.armors.len() - 1 {
+                self.armor_index = Some(sai + 1);
+                return false;
+            } else {
+                self.armor_index = None;
+                return true;
+            }
+        }
+    }
+
+    /// Increment the right ring index. Return True if it rolled over and is now None, otherwise False.
+    fn increment_ring_r(&mut self) -> bool {
+        if self.ring_r_index.is_none() {
+            if self.rings.len() > 0 {
+                self.ring_r_index = Some(0);
+                return false;
+            } else {
+                return true;
+            }
+        } else {
+            let srri = self.ring_r_index.clone().unwrap();
+            if srri < self.rings.len() - 1 {
+                self.ring_r_index = Some(srri + 1);
+                return false;
+            } else {
+                self.ring_r_index = None;
+                return true;
+            }
+        }
+    }
+
+    /// Increment the left ring index. Return True if it rolled over and is now None, otherwise False.
+    fn increment_ring_l(&mut self) -> bool {
+        if self.ring_l_index.is_none() {
+            if self.rings.len() > 0 {
+                self.ring_l_index = Some(0);
+                return false;
+            } else {
+                return true;
+            }
+        } else {
+            let slri = self.ring_l_index.clone().unwrap();
+            let srri = self.ring_r_index.clone().unwrap();
+            if slri < self.rings.len() - 1 && slri < srri - 1 {
+                self.ring_l_index = Some(slri + 1);
+                return false;
+            } else {
+                self.ring_l_index = None;
+                return true;
+            }
         }
     }
 }
 
 impl Iterator for LoadoutGenerator {
     type Item = Loadout;
-
+    /// Generate the next loadout.
+    ///
+    /// Ordering is arbitrary.
     fn next(&mut self) -> Option<Loadout> {
-        if self.first_call {
-            self.first_call = false;
-            return Some(self.current.clone());
-        }
-        // The goal here is to always return the cheapest equipment upgrade, even if that means
-        // downgrading one piece of equipment, possibly more than once, in order to upgrade
-        // something else.
-        //
-        // At the same time, we want to iterate deterministically through the items and return
-        // each possible loadout only once.
-        //
-        // As an implementation detail to help reduce the options applied, we determine that the
-        // ring on the right hand is always more valuable than the ring on the left.
-
-        // start by figuring the costs of upgrade of each category: weapon, armor, ring
-
-        // we optimize by noting that as we always need a weapon, but do not require anything else,
-        // every time we upgrade a weapon, the cheapest thing is to throw away all
-        // other equipment.
-
-        // second optimization: TODO keep track of the previous set of Armor and Rings. It may be
-        // cheaper to backtrack to an earlier Armor to get some new Rings, for example.
-
-        let mut wpn_up = self.current.clone();
-        let wpn_up_worked = wpn_up.upgrade_weapon(&self.weapons);
-        let mut arm_up = self.current.clone();
-        let arm_up_worked = arm_up.upgrade_armor(&self.armors);
-        let mut rng_up = self.current.clone();
-        let rng_up_worked = rng_up.upgrade_rings(&self.rings);
-
-        if !(wpn_up_worked || arm_up_worked || rng_up_worked) {
+        // we have to have a weapon
+        if self.weapons.is_empty() {
             return None;
         }
 
-        let mut costs = Vec::new();
-        if wpn_up_worked {
-            costs.push(wpn_up.cost());
-        }
-        if arm_up_worked {
-            costs.push(arm_up.cost());
-        }
-        if rng_up_worked {
-            costs.push(rng_up.cost());
+        if self.first_call {
+            self.first_call = false;
+            return Some(self.loadout_from_indices());
         }
 
-        let min_cost = costs.iter().min().unwrap();
+        // Time to slowly tune everything up.
+        if self.weapon_index < self.weapons.len() - 1 {
+            // increment the weapon
+            self.weapon_index += 1;
 
-        if rng_up_worked && &rng_up.cost() == min_cost {
-            // improve our rings
-            self.current = rng_up.clone();
-            return Some(rng_up);
+        } else {
+            self.weapon_index = 0;
+            if self.increment_armor() {
+                // armor rolled over
+                if self.increment_ring_r() {
+                    // ring r rolled over
+                    if self.increment_ring_l() {
+                        // ring l rolled over
+                        // That's it! That's the end of the iteration!
+                        return None;
+                    }
+                    // ring r is None, but that's not right. It is always higher than ring l.
+                    // also, if we're here, ring l is not None.
+                    let slri = self.ring_l_index.clone().unwrap();
+                    if slri < self.rings.len() - 1 {
+                        self.ring_r_index = Some(slri + 1);
+                    } else {
+                        // slri == self.rings.len()
+                        // this should never happen, because it would break the condition
+                        // that self.ring_r_index is alway > self.ring_l_index.
+                        panic!("Precondition failed: ring_r_index > ring_l_index")
+                    }
+                }
+            }
         }
-
-
-        if arm_up_worked && &arm_up.cost() == min_cost {
-            // improve our armor
-            self.current = arm_up.clone();
-            return Some(arm_up);
-        }
-
-
-        if wpn_up_worked && &wpn_up.cost() == min_cost {
-            self.current = wpn_up.clone();
-            return Some(wpn_up);
-        }
-
-        panic!("Failed to calculate min costs correctly in LoadoutGenerator.next()");
+        Some(self.loadout_from_indices())
     }
 }
 
