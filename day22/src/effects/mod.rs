@@ -33,10 +33,22 @@ pub trait Magic {
     /// Responsible for consuming the requisite amount of mana, etc.
     fn on_cast(&self, player: &mut Character, boss: &mut Character);
 
+    /// Report on what this spell did immediately on casting.
+    fn on_cast_str(&self) -> String {
+        format!("Player casts {}\n", self.to_impl().name)
+    }
+
     /// This happens per turn, beginning the turn after the player casts the spell.
     ///
     /// Responsible for decreasing its own time to live, etc.
     fn per_turn(&mut self, _: &mut Character, _: &mut Character) {}
+
+    /// Report on what this spell did this turn as a continuing effect.
+    ///
+    /// Important: only call this *after* calling `per_turn()`.
+    fn per_turn_str(&self) -> String {
+        format!("{:?} has no effect", self.etype())
+    }
 
     /// Mana cost of this spell to cast
     fn cost(&self) -> u16 {

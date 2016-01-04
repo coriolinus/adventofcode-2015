@@ -38,6 +38,14 @@ impl Magic for Shield {
         }
     }
 
+    fn per_turn_str(&self) -> String {
+        let mut ret = format!("Shield's timer is now {}\n", self.ei.ttl);
+        if self.ei.ttl == 0 {
+            ret.push_str("Shield wears off, decreasing armor by 7\n");
+        }
+        ret
+    }
+
     fn to_impl(&self) -> EffectImpl {
         self.ei.clone()
     }

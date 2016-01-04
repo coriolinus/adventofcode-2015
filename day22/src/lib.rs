@@ -205,6 +205,8 @@ pub struct Arena {
     effects: Vec<EffectImpl>,
     pub mana_spent: u16,
     last_spell: Option<Effects>,
+    log: String,
+    turn_log: String,
 }
 
 impl Default for Arena {
@@ -214,8 +216,10 @@ impl Default for Arena {
             player: Character::player(),
             boss: Character::boss(),
             effects: Vec::new(),
-             mana_spent: 0,
+            mana_spent: 0,
             last_spell: None,
+            log: String::new(),
+            turn_log: String::new(),
         }
     }
 }
@@ -245,6 +249,7 @@ impl Arena {
             future.last_spell = Some(spell.etype());
             future.mana_spent += spell.cost();
             spell.on_cast(&mut future.player, &mut future.boss);
+            future.turn_log.push_str(&spell.on_cast_str());
             if spell.ttl() > 0 {
                 future.effects.push(spell.to_impl());
             }
@@ -262,6 +267,21 @@ impl Arena {
     /// Game should end if either character runs out of hit points or the player character
     /// has insufficient mana to cast any spell on their turn.
     pub fn turn(&mut self) -> Result<Vec<Arena>, CharacterType> {
+        // did the player win last turn?
+        if self.boss.hp == 0 {
+            self.turn_log.push_str("This kills the boss, and the player wins.\n");
+            return Err(CharacterType::Player);
+        }
+
+        self.log.push_str(&self.turn_log);
+        self.log.push('\n');
+
+        self.turn_log = format!("-- {:?} turn --\n", self.turn);
+        let mut line = format!("- Player has {} hit points, {} armor, {} mana\n", self.player.hp, self.player.armor, self.player.mana);
+        self.turn_log.push_str(&line);
+        line = format!("- Boss has {} hit points\n", self.boss.hp);
+        self.turn_log.push_str(&line);
+
         // Effects apply at the start of each player's turn.
         for effectimpl in &self.effects {
             let ei = effectimpl.etype.clone();
@@ -274,14 +294,21 @@ impl Arena {
             };
 
             effect.per_turn(&mut self.player, &mut self.boss);
+            self.turn_log.push_str(&effect.per_turn_str());
         }
         // After application, remove those who are out of life.
         self.effects.retain(|ef| ef.ttl > 0);
 
+        // has the player won yet?
+        if self.boss.hp == 0 {
+            self.turn_log.push_str("This kills the boss, and the player wins.\n");
+            return Err(CharacterType::Player);
+        }
+
         match self.turn {
             CharacterType::Boss => {
-                if self.boss.hp > 0 {
                     let damage = if self.boss.damage > self.player.armor {self.boss.damage - self.player.armor} else {1};
+                    self.turn_log.push_str(&format!("Boss attacks for {} - {} = {} damage!\n", self.boss.damage, self.player.armor, damage));
                     if self.player.hp > damage {
                         self.player.hp -= damage;
                         let mut ret = self.clone();
@@ -289,49 +316,36 @@ impl Arena {
                         Ok(vec![self.future()])
                     } else {
                         // damage >= self.player.hp
+                        self.turn_log.push_str("This kills the player, and the boss wins.\n");
                         self.player.hp = 0;
                         Err(CharacterType::Boss)
                     }
-                } else {
-                    // boss died, turn ends without switching character.
-                    Err(CharacterType::Player)
-                }
+
             },
             CharacterType::Player => {
                 if self.player.hp > 0 {
                     // For each spell we can cast, add a future in which we cast it
                     let mut ret = Vec::new();
-                    //Drain
-                    let spell = Drain::new();
-                    if let Some(future) = self.attempt_spell(&spell) {
-                        ret.push(future)
+
+                    // sorted from low mana to high, for correct results
+                    let spells: Vec<Box<Magic>> = vec![Box::new(MagicMissile::new()),
+                                                       Box::new(Drain::new()),
+                                                       Box::new(Shield::new()),
+                                                       Box::new(Poison::new()),
+                                                       Box::new(Recharge::new())];
+                    for spell in spells {
+                        if let Some(future) = self.attempt_spell(&*spell) {
+                            ret.push(future)
+                        }
                     }
-                    //Magic Missile
-                    let spell = MagicMissile::new();
-                    if let Some(future) = self.attempt_spell(&spell) {
-                        ret.push(future)
-                    }
-                    //Poison
-                    let spell = Poison::new();
-                    if let Some(future) = self.attempt_spell(&spell) {
-                        ret.push(future)
-                    }
-                    //Recharge
-                    let spell = Recharge::new();
-                    if let Some(future) = self.attempt_spell(&spell) {
-                        ret.push(future)
-                    }
-                    //Shield
-                    let spell = Shield::new();
-                    if let Some(future) = self.attempt_spell(&spell) {
-                        ret.push(future)
-                    }
+
                     match ret.len() {
                         0 => Err(CharacterType::Boss),
                         _ => Ok(ret),
                     }
                 } else {
-                    Err(CharacterType::Boss)
+                    print!("{}", self.log);
+                    panic!("Player had 0 hp on turn start!");
                 }
             },
         }
@@ -424,6 +438,9 @@ mod tests {
         let res = arena.turn();
         if let Err(victor_f) = res {
             assert_eq!(victor, victor_f);
+            println!("{}", arena.log);
+            println!("{}", arena.turn_log);
+            assert!(false);
         } else {
             panic!("Didn't find victor {:?} when expected", victor);
         }
@@ -471,7 +488,13 @@ mod tests {
         expect_turn(&arena, bt, 3, 7, 239, 12);
         arena = boss_turn(arena);
 
+        if let Some(ref a) = arena {
+        println!("{}", a.log);
+        println!("{}", a.turn_log);
+}
         expect_turn(&arena, pt, 2, 7, 340, 12);
+
+        assert!(false);
         // arena = expect_spell(arena, Effects::Poison);
         // expect_turn(&arena, bt, 2, 7, 167, 12);
         // arena = boss_turn(arena);

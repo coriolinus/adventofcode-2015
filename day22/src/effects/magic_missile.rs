@@ -35,6 +35,10 @@ impl Magic for MagicMissile {
         };
     }
 
+    fn on_cast_str(&self) -> String {
+        "Player casts Magic Missile, dealing 4 damage\n".to_string()
+    }
+
     fn to_impl(&self) -> EffectImpl {
         self.ei.clone()
     }

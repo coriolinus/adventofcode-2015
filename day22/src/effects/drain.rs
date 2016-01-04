@@ -36,6 +36,10 @@ impl Magic for Drain {
         };
     }
 
+    fn on_cast_str(&self) -> String {
+        "Player casts Drain, dealing 2 damage and healing 2 hit points\n".to_string()
+    }
+
     fn to_impl(&self) -> EffectImpl {
         self.ei.clone()
     }

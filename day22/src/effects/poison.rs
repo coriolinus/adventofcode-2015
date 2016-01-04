@@ -39,6 +39,14 @@ impl Magic for Poison {
         };
     }
 
+    fn per_turn_str(&self) -> String {
+        let mut ret = format!("Poison deals 3 damage; its timer is now {}\n", self.ei.ttl);
+        if self.ei.ttl == 0 {
+            ret.push_str("Poison wears off.\n");
+        }
+        ret
+    }
+
     fn to_impl(&self) -> EffectImpl {
         self.ei.clone()
     }

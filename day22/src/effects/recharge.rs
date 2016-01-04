@@ -35,6 +35,15 @@ impl Magic for Recharge {
         player.mana += 101;
     }
 
+    fn per_turn_str(&self) -> String {
+        let mut ret = format!("Recharge provides 101 mana; its timer is now {}\n",
+                              self.ei.ttl);
+        if self.ei.ttl == 0 {
+            ret.push_str("Recharge wears off.\n");
+        }
+        ret
+    }
+
     fn to_impl(&self) -> EffectImpl {
         self.ei.clone()
     }
