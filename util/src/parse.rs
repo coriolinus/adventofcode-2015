@@ -318,6 +318,10 @@ pub enum ParseError {
     TooFewTokens,
     TooManyTokens,
     TokenMismatchOnFixedKey,
+    /// Never returned by `.parse()`, this error is a catch-all so that consumer code can return
+    /// a `Result<_, ParseError>` instead of `Result<_, Option<ParseError>>` if it needs to trigger
+    /// a parse error based on otherwise valid input.
+    ConsumerError,
 }
 
 /// Parse a string using `Parser::default()`.
