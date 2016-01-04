@@ -282,6 +282,8 @@ impl Arena {
         line = format!("- Boss has {} hit points\n", self.boss.hp);
         self.turn_log.push_str(&line);
 
+        // buffer for next turn's effects
+        let mut nte = Vec::new();
         // Effects apply at the start of each player's turn.
         for effectimpl in &self.effects {
             let ei = effectimpl.etype.clone();
@@ -295,9 +297,13 @@ impl Arena {
 
             effect.per_turn(&mut self.player, &mut self.boss);
             self.turn_log.push_str(&effect.per_turn_str());
+
+            if effect.ttl() > 0 {
+                nte.push(effect.to_impl());
+            }
         }
         // After application, remove those who are out of life.
-        self.effects.retain(|ef| ef.ttl > 0);
+        self.effects = nte;
 
         // has the player won yet?
         if self.boss.hp == 0 {
@@ -440,7 +446,6 @@ mod tests {
             assert_eq!(victor, victor_f);
             println!("{}", arena.log);
             println!("{}", arena.turn_log);
-            assert!(false);
         } else {
             panic!("Didn't find victor {:?} when expected", victor);
         }
@@ -488,20 +493,13 @@ mod tests {
         expect_turn(&arena, bt, 3, 7, 239, 12);
         arena = boss_turn(arena);
 
-        if let Some(ref a) = arena {
-        println!("{}", a.log);
-        println!("{}", a.turn_log);
-}
         expect_turn(&arena, pt, 2, 7, 340, 12);
+        arena = expect_spell(arena, Effects::Poison);
+        expect_turn(&arena, bt, 2, 7, 167, 12);
+        arena = boss_turn(arena);
 
-        assert!(false);
-        // arena = expect_spell(arena, Effects::Poison);
-        // expect_turn(&arena, bt, 2, 7, 167, 12);
-        // arena = boss_turn(arena);
-
-        // // expect_turn(&arena, pt, 1, 7, 167, 9);
-        // arena = expect_spell(arena, Effects::MagicMissile);
-        // expect_victor(arena, pt);
-
+        expect_turn(&arena, pt, 1, 7, 167, 9);
+        arena = expect_spell(arena, Effects::MagicMissile);
+        expect_victor(arena, pt);
     }
 }
