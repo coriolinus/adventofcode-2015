@@ -175,6 +175,10 @@ impl CPU {
         self.registers[r.val()]
     }
 
+    pub fn set(&mut self, r: Register, v: u64) {
+        self.registers[r.val()] = v;
+    }
+
     /// `hlf r` sets register `r` to half its current value, then continues with the next instruction.
     pub fn hlf(&mut self, r: Register) {
         self.registers[r.val()] = self.registers[r.val()] / 2;
