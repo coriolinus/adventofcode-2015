@@ -364,22 +364,35 @@ impl Arena {
                         _ => Ok(ret),
                     }
                 } else {
-                    print!("{}", self.log);
-                    panic!("Player had 0 hp on turn start!");
+                    Err(CharacterType::Boss)
                 }
             },
         }
     }
+
+    pub fn hard_turn(&mut self) -> Result<Vec<Arena>, CharacterType> {
+        if self.turn == CharacterType::Player {
+            self.player.hp -= 1;
+            if self.player.hp == 0 {
+                return Err(CharacterType::Boss);
+            }
+        }
+        self.turn()
+    }
 }
 
 pub fn breadth_first_victory_search(arena: Arena) -> Arena {
+    breadth_first_victory_search_with_difficulty(arena, false)
+}
+
+pub fn breadth_first_victory_search_with_difficulty(arena: Arena, hard: bool) -> Arena {
     let mut found_victory = false;
     let mut candidates = Vec::new();
     let mut buffer = VecDeque::new();
     buffer.push_back(arena);
     while !buffer.is_empty() {
         let mut arena = buffer.pop_front().unwrap();
-        match arena.turn() {
+        match if hard {arena.hard_turn()} else {arena.turn()} {
             Ok(futures) => {
                 if ! found_victory {
                     buffer.extend(futures);
