@@ -259,9 +259,17 @@ mod tests {
     }
 
     #[test]
-    fn test_example() {
+    fn test_example_parses() {
         let insts = Instruction::parse_lines(&get_example_lines());
         println!("Instructions: {:?}", insts);
         assert!(insts.is_ok());
+    }
+
+    #[test]
+    fn test_example() {
+        let insts = Instruction::parse_lines(&get_example_lines()).unwrap();
+        let mut cpu = CPU::from_instructions(insts);
+        cpu.run();
+        assert_eq!(cpu.get(Register::A), 2);
     }
 }
