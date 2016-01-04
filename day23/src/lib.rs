@@ -33,6 +33,9 @@
 //! inc a
 //! ```
 
+extern crate util;
+use util::parse::{Parser, ParseError};
+
 /// The registers are named `a` and `b`, and can hold any non-negative integer
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub enum Register {
@@ -67,6 +70,84 @@ pub enum Instruction {
     Jio(Register, Offset),
 }
 
+impl Instruction {
+    fn parse_reg(s: &str) -> Result<Register, ParseError> {
+        match s {
+            "a" => Ok(Register::A),
+            "b" => Ok(Register::B),
+            _ => {
+                println!("Invalid register name: {}", s);
+                Err(ParseError::ConsumerError)
+            }
+        }
+
+    }
+
+    fn parse_offset(s: &str) -> Result<Offset, ParseError> {
+        let o = Offset::from_str_radix(s, 10);
+        if let Ok(n) = o {
+            Ok(n)
+        } else {
+            println!("Couldn't interpret {} as Offset", s);
+            Err(ParseError::ConsumerError)
+        }
+
+    }
+
+    fn parse_reg_and_offset(s: Vec<String>) -> Result<(Register, Offset), ParseError> {
+        if s.len() != 3 {
+            println!("Wrong number of tokens passed to parse_reg_and_offset");
+            Err(ParseError::ConsumerError)
+        } else {
+            let r = try!(Instruction::parse_reg(&s[1]));
+            let o = try!(Instruction::parse_offset(&s[2]));
+            Ok((r, o))
+        }
+    }
+
+    pub fn parse(s: &str) -> Result<Instruction, ParseError> {
+        let result = try!(Parser::default()
+                              .require_at_least(Some(2))
+                              .require_fewer_than(Some(4))
+                              .clear_trailing_punctuation(true)
+                              .parse(s));
+
+        match result.tokens.first().unwrap_or(&String::new()).as_ref() {
+            "hlf" => Ok(Instruction::Hlf(try!(Instruction::parse_reg(&result.tokens[1])))),
+            "tpl" => Ok(Instruction::Tpl(try!(Instruction::parse_reg(&result.tokens[1])))),
+            "inc" => Ok(Instruction::Inc(try!(Instruction::parse_reg(&result.tokens[1])))),
+            "jmp" => Ok(Instruction::Jmp(try!(Instruction::parse_offset(&result.tokens[1])))),
+            "jie" => {
+                let (r, o) = try!(Instruction::parse_reg_and_offset(result.tokens));
+                Ok(Instruction::Jie(r, o))
+            }
+            "jio" => {
+                let (r, o) = try!(Instruction::parse_reg_and_offset(result.tokens));
+                Ok(Instruction::Jio(r, o))
+            }
+            _ => {
+                println!("Choked on invalid token");
+                Err(ParseError::ConsumerError)
+            }
+        }
+    }
+
+    pub fn parse_lines(instructions: &str) -> Result<Vec<Instruction>, ParseError> {
+        let mut ret = Vec::new();
+        for line in instructions.split("\n") {
+            if !line.trim().is_empty() {
+                if let Ok(inst) = Instruction::parse(line) {
+                    ret.push(inst);
+                } else {
+                    println!("Couldn't parse non-empty line: '{}'", line.trim());
+                    return Err(ParseError::ConsumerError);
+                }
+            }
+        }
+        Ok(ret)
+    }
+}
+
 pub struct CPU {
     registers: [u64; 2],
     instructions: Vec<Instruction>,
@@ -84,6 +165,12 @@ impl Default for CPU {
 }
 
 impl CPU {
+    pub fn from_instructions(instructions: Vec<Instruction>) -> CPU {
+        let mut ret = CPU::default();
+        ret.load(instructions);
+        ret
+    }
+
     pub fn get(&self, r: Register) -> u64 {
         self.registers[r.val()]
     }
@@ -129,6 +216,7 @@ impl CPU {
         }
     }
 
+    /// Run the program until the instruction pointer goes beyond the range of the instruction set
     pub fn run(&mut self) {
         while self.ip >= 0 && (self.ip as usize) < self.instructions.len() {
             match self.instructions[self.ip as usize] {
@@ -142,13 +230,38 @@ impl CPU {
         }
     }
 
+    /// Reset the computer to the initial state without modifying the instruction set
     pub fn reset(&mut self) {
         self.ip = 0;
         self.registers = [0, 0];
     }
 
+    /// Load a new program into the computer and configure it to start.
+    ///
+    /// Note that the program is widely referred to as the instruction set.
     pub fn load(&mut self, instructions: Vec<Instruction>) {
         self.instructions = instructions;
         self.reset();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn get_example_lines() -> String {
+        let mut ret = String::new();
+        ret.push_str("inc a\n");
+        ret.push_str("jio a, +2\n");
+        ret.push_str("tpl a\n");
+        ret.push_str("inc a\n");
+        ret
+    }
+
+    #[test]
+    fn test_example() {
+        let insts = Instruction::parse_lines(&get_example_lines());
+        println!("Instructions: {:?}", insts);
+        assert!(insts.is_ok());
     }
 }
