@@ -259,6 +259,12 @@ impl Arena {
         }
     }
 
+    pub fn log(&self) -> String {
+        let mut ret = self.log.clone();
+        ret.push_str(&self.turn_log);
+        ret
+    }
+
     /// Take one turn.
     ///
     /// Returns Ok(vector of future Arenas) if the game should continue.
