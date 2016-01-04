@@ -245,6 +245,14 @@ impl Arena {
 
     fn attempt_spell(&self, spell: &Magic) -> Option<Arena> {
         if self.player.mana >= spell.cost() {
+            // You cannot cast a spell that would start an effect which is already active.
+            // However, effects can be started on the same turn they end.
+            for eff in &self.effects {
+                if eff.etype == spell.etype() && eff.ttl > 0 {
+                    return None;
+                }
+            }
+
             let mut future = self.future();
             future.last_spell = Some(spell.etype());
             future.mana_spent += spell.cost();
