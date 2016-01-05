@@ -60,14 +60,47 @@ pub struct Sleigh {
 }
 
 impl Sleigh {
+    /// Quantum Entanglement of the footwell of this sleigh.
     pub fn foot_qe(&self) -> u16 {
         self.foot.iter().map(|&x| x as u16).fold(1, |acc, item| acc * item)
     }
+
+    pub fn foot_wt(&self) -> u16 {
+        self.foot.iter().map(|&x| x as u16).fold(0, |acc, item| acc + item)
+    }
+
+    pub fn left_wt(&self) -> u16 {
+        self.left.iter().map(|&x| x as u16).fold(0, |acc, item| acc + item)
+    }
+
+    pub fn right_wt(&self) -> u16 {
+        self.right.iter().map(|&x| x as u16).fold(0, |acc, item| acc + item)
+    }
 }
 
+impl Default for Sleigh {
+    fn default() -> Sleigh {
+        Sleigh {
+            foot: Vec::new(),
+            left: Vec::new(),
+            right: Vec::new(),
+        }
+    }
+}
+
+/// Generator of legal sleigh configurations. Main entry point to this module.
 pub struct SleighConfigurations {
     packages: Vec<Package>,
     side_wt: Package, // weight for each side
+}
+
+impl Default for SleighConfigurations {
+    fn default() -> SleighConfigurations {
+        SleighConfigurations {
+            packages: Vec::new(),
+            side_wt: 0,
+        }
+    }
 }
 
 impl SleighConfigurations {
@@ -99,14 +132,39 @@ impl SleighConfigurations {
             ..SleighConfigurations::default()
         })
     }
-}
 
-impl Default for SleighConfigurations {
-    fn default() -> SleighConfigurations {
-        SleighConfigurations {
-            packages: Vec::new(),
-            side_wt: 0,
+    /// Determine the best sleigh configuration for the given packages.
+    ///
+    /// The best sleigh configuration is the one for which `sleigh.foot.len()` is minimal. If
+    /// multiple sleighs can be configured with equal numbers of items in the footwells, the best
+    /// of those is the one for which `sleigh.foot_qe()` is minimal.
+    ///
+    /// Returns None if the `SleighConfigurations::new()` constructor does for the given packages,
+    /// or if no legal configuration can be computed. For example, if `packages == vec![3]`,
+    /// `new()` will attempt to pack it but will be unable to make three compartments of equal
+    /// weight from that single item.
+    pub fn best(packages: Vec<Package>) -> Option<Sleigh> {
+        let sc = SleighConfigurations::new(packages);
+        if sc.is_none() {
+            return None;
         }
+        let mut sc = sc.unwrap();
+
+        let first = sc.next();
+        if first.is_none() {
+            return None;
+        }
+
+        let mut best = first.unwrap();
+        for sleigh in sc {
+            if sleigh.foot.len() < best.foot.len() {
+                best = sleigh;
+            } else if sleigh.foot.len() == best.foot.len() && sleigh.foot_qe() < best.foot_qe() {
+                best = sleigh;
+            }
+        }
+
+        Some(best)
     }
 }
 
