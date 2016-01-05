@@ -51,8 +51,12 @@
 //! Had there been two configurations with only two packages in the first group, the one with the
 //! smaller quantum entanglement would be chosen.
 
+use std::collections::HashSet;
+pub mod summed_subsets;
+
 pub type Package = u8;
 
+#[derive(Clone)]
 pub struct Sleigh {
     pub foot: Vec<Package>,
     pub left: Vec<Package>,
@@ -89,9 +93,14 @@ impl Default for Sleigh {
 }
 
 /// Generator of legal sleigh configurations. Main entry point to this module.
+///
+/// Note: This only handles the case that all of the `Package`s have unique sizes.
 pub struct SleighConfigurations {
     packages: Vec<Package>,
     side_wt: Package, // weight for each side
+    used_foot: HashSet<Package>,
+    used_left: HashSet<Package>,
+    prev: Option<Sleigh>,
 }
 
 impl Default for SleighConfigurations {
@@ -99,6 +108,9 @@ impl Default for SleighConfigurations {
         SleighConfigurations {
             packages: Vec::new(),
             side_wt: 0,
+            used_foot: HashSet::new(),
+            used_left: HashSet::new(),
+            prev: None,
         }
     }
 }
@@ -109,10 +121,19 @@ impl SleighConfigurations {
     /// Returns `None` if the total weight can't be evenly divided by 3, or if the biggest package
     /// is bigger than 1/3 of the total weight, because in those circumstances no valid sleigh
     /// configurations can be generated.
+    ///
+    /// Returns `None` if not all packages are unique, because this solver can't handle that case.
     pub fn new(packages: Vec<Package>) -> Option<SleighConfigurations> {
         let total = packages.iter().fold(0, |acc, item| acc + item);
         if total % 3 != 0 {
             // Invalid configuration; the packages can't be divided into groups of three equal weights
+            return None;
+        }
+
+        let mut uniques = HashSet::new();
+        uniques.extend(packages.iter().cloned());
+        if uniques.len() != packages.len() {
+            // Invalid because there exist duplicate packages
             return None;
         }
 
@@ -140,9 +161,7 @@ impl SleighConfigurations {
     /// of those is the one for which `sleigh.foot_qe()` is minimal.
     ///
     /// Returns None if the `SleighConfigurations::new()` constructor does for the given packages,
-    /// or if no legal configuration can be computed. For example, if `packages == vec![3]`,
-    /// `new()` will attempt to pack it but will be unable to make three compartments of equal
-    /// weight from that single item.
+    /// or if no legal configuration can be computed.
     pub fn best(packages: Vec<Package>) -> Option<Sleigh> {
         let sc = SleighConfigurations::new(packages);
         if sc.is_none() {
@@ -172,6 +191,55 @@ impl Iterator for SleighConfigurations {
     type Item = Sleigh;
 
     fn next(&mut self) -> Option<Sleigh> {
-        unimplemented!();
+        let mut current = Sleigh::default();
+
+        let mut foot_wt_rem = self.side_wt;
+        let mut left_wt_rem = self.side_wt;
+        // iterate from the top
+        for package in self.packages.iter().rev() {
+            if *package <= foot_wt_rem {
+                foot_wt_rem -= *package;
+                current.foot.push(*package);
+            } else if *package <= left_wt_rem {
+                left_wt_rem -= *package;
+                current.left.push(*package);
+            } else {
+                current.right.push(*package);
+            }
+        }
+        if current.foot_wt() == current.left_wt() && current.foot_wt() == current.right_wt() {
+            self.prev = Some(current.clone());
+            Some(current)
+        } else {
+            None
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sleigh_example() {
+        let sleigh = Sleigh {
+            foot: vec![11, 9],
+            left: vec![10, 8, 2],
+            right: vec![7, 5, 4, 3, 1],
+        };
+
+        assert_eq!(sleigh.foot_wt(), sleigh.left_wt());
+        assert_eq!(sleigh.foot_wt(), sleigh.right_wt());
+        assert_eq!(sleigh.foot_qe(), 99);
+
+        let sleigh = Sleigh {
+            foot: vec![10, 9, 1],
+            left: vec![11, 7, 2],
+            right: vec![8, 5, 4, 3],
+        };
+
+        assert_eq!(sleigh.foot_wt(), sleigh.left_wt());
+        assert_eq!(sleigh.foot_wt(), sleigh.right_wt());
+        assert_eq!(sleigh.foot_qe(), 90);
     }
 }
