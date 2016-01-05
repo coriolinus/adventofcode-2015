@@ -64,3 +64,96 @@
 //! "Now remember", the voice continues, "that's not even all of the first few numbers; for
 //! example, you're missing the one at `7,1` that would come before `6,2`. But, it should be enough
 //! to let your-- oh, it's time for lunch! Bye!" The call disconnects.
+
+/// Generate the correct list index of the requested row and column.
+///
+/// Note that row and column indices start at 1. If given 0 indices, the function returns 0.
+fn rc_to_index(r: usize, c: usize) -> usize {
+    if r == 0 || c == 0 {
+        return 0;
+    }
+    // add the last diagonal immmediately. This is the only incomplete digonal.
+    let mut ret = c - 1;
+
+    let tier = r + c - 1;
+
+    for diag in 1..tier {
+        ret += diag;
+    }
+
+    ret
+}
+
+pub struct CodeGen {
+    values: Vec<usize>,
+}
+
+impl CodeGen {
+    pub fn new(magic: usize) -> CodeGen {
+        CodeGen { values: vec![magic] }
+    }
+
+    /// Find the next value in sequence.
+    fn gen_next(&mut self) {
+        let prev = self.values.last().unwrap().clone();
+        let current = (prev * 252533) % 33554393;
+        self.values.push(current);
+    }
+
+    /// Get the value at the appropriate row and column. Generate as required.
+    pub fn get(&mut self, r: usize, c: usize) -> usize {
+        let index = rc_to_index(r, c);
+        while self.values.len() <= index {
+            self.gen_next();
+        }
+        self.values[index]
+    }
+}
+
+impl Default for CodeGen {
+    /// Generate a CodeGen with the magic number given in the puzzle.
+    fn default() -> CodeGen {
+        CodeGen::new(20151125)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{rc_to_index, CodeGen};
+
+    /// Test generation of sequence numbers based on row and column
+    ///
+    /// For example, the 12th code would be written to row `4`, column `2`; the 15th code would be
+    /// written to row `1`, column `5`.
+    #[test]
+    fn test_rci_examples() {
+        let mut cases = Vec::new();
+        cases.push((1, 1, 0));
+        cases.push((2, 1, 1));
+        cases.push((1, 2, 2));
+        cases.push((3, 1, 3));
+        cases.push((2, 2, 4));
+        cases.push((1, 3, 5));
+        cases.push((4, 2, 11));
+        cases.push((1, 5, 14));
+
+        for (row, col, expect) in cases {
+            println!("Expect {},{} -> {}", row, col, expect);
+            assert_eq!(rc_to_index(row, col), expect);
+        }
+    }
+
+    #[test]
+    fn test_example() {
+        let row1 = vec![20151125, 18749137, 17289845, 30943339, 10071777, 33511524];
+        let row6 = vec![33071741, 6796745, 25397450, 24659492, 1534922, 27995004];
+        let mut cg = CodeGen::default();
+
+        for (col, expect) in row1.iter().enumerate() {
+            assert_eq!(&cg.get(1, col + 1), expect);
+        }
+        for (col, expect) in row6.iter().enumerate() {
+            assert_eq!(&cg.get(6, col + 1), expect);
+        }
+    }
+}
