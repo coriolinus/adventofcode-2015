@@ -50,3 +50,70 @@
 //! wins. In this situation, the quantum entanglement for the ideal configuration is therefore 99.
 //! Had there been two configurations with only two packages in the first group, the one with the
 //! smaller quantum entanglement would be chosen.
+
+pub type Package = u8;
+
+pub struct Sleigh {
+    pub foot: Vec<Package>,
+    pub left: Vec<Package>,
+    pub right: Vec<Package>,
+}
+
+impl Sleigh {
+    pub fn foot_qe(&self) -> u16 {
+        self.foot.iter().map(|&x| x as u16).fold(1, |acc, item| acc * item)
+    }
+}
+
+pub struct SleighConfigurations {
+    packages: Vec<Package>,
+    side_wt: Package, // weight for each side
+}
+
+impl SleighConfigurations {
+    /// Construct a new `SleighConfigurations` generator.
+    ///
+    /// Returns `None` if the total weight can't be evenly divided by 3, or if the biggest package
+    /// is bigger than 1/3 of the total weight, because in those circumstances no valid sleigh
+    /// configurations can be generated.
+    pub fn new(packages: Vec<Package>) -> Option<SleighConfigurations> {
+        let total = packages.iter().fold(0, |acc, item| acc + item);
+        if total % 3 != 0 {
+            // Invalid configuration; the packages can't be divided into groups of three equal weights
+            return None;
+        }
+
+        let mut packages = packages;
+        packages.sort();
+
+        if let Some(biggest) = packages.last() {
+            if biggest > &(total / 3) {
+                // Invalid configuration: the biggest item won't fit into any group
+                return None;
+            }
+        }
+
+        Some(SleighConfigurations {
+            packages: packages,
+            side_wt: total / 3,
+            ..SleighConfigurations::default()
+        })
+    }
+}
+
+impl Default for SleighConfigurations {
+    fn default() -> SleighConfigurations {
+        SleighConfigurations {
+            packages: Vec::new(),
+            side_wt: 0,
+        }
+    }
+}
+
+impl Iterator for SleighConfigurations {
+    type Item = Sleigh;
+
+    fn next(&mut self) -> Option<Sleigh> {
+        unimplemented!();
+    }
+}
