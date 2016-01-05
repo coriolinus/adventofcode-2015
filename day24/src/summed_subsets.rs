@@ -2,6 +2,9 @@ use std::ops;
 use std::fmt::Debug;
 
 /// An iterator over subsets of the numbers `N` such that the sum of each subset is equal to a given target.
+///
+/// Subsets will be returned in descending order of highest contained item.
+/// The items within each returned subset will always be sorted in ascending order.
 pub struct SummedSubsets<N> {
     items: Vec<N>,
     target: N,
