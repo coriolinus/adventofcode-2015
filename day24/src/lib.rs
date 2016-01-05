@@ -65,8 +65,8 @@ pub struct Sleigh {
 
 impl Sleigh {
     /// Quantum Entanglement of the footwell of this sleigh.
-    pub fn foot_qe(&self) -> u16 {
-        self.foot.iter().map(|&x| x as u16).fold(1, |acc, item| acc * item)
+    pub fn foot_qe(&self) -> u64 {
+        self.foot.iter().map(|&x| x as u64).fold(1, |acc, item| acc * item)
     }
 
     pub fn foot_wt(&self) -> u16 {
