@@ -24,8 +24,15 @@ fn main() {
     }
 
     if packages.len() > 0 {
-        if let Some(best) = SleighConfigurations::best(packages.clone()) {
+        if let Some(best) = SleighConfigurations::best(packages.clone(), false) {
             println!("Best config: {:?}", best);
+            println!(" with QE: {:?}", best.foot_qe());
+        } else {
+            println!("Could not determine an appropriate loading for the following packages: {:?}",
+                     packages);
+        }
+        if let Some(best) = SleighConfigurations::best(packages.clone(), true) {
+            println!("Best config (with trunk): {:?}", best);
             println!(" with QE: {:?}", best.foot_qe());
         } else {
             println!("Could not determine an appropriate loading for the following packages: {:?}",

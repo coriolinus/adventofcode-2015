@@ -61,6 +61,7 @@ pub struct Sleigh {
     pub foot: Vec<Package>,
     pub left: Vec<Package>,
     pub right: Vec<Package>,
+    pub trunk: Vec<Package>,
 }
 
 impl Sleigh {
@@ -88,6 +89,7 @@ impl Default for Sleigh {
             foot: Vec::new(),
             left: Vec::new(),
             right: Vec::new(),
+            trunk: Vec::new(),
         }
     }
 }
@@ -99,6 +101,7 @@ pub struct SleighConfigurations {
     packages: Vec<Package>,
     side_wt: Package, // weight for each side
     foot_iter: SummedSubsets<Package>,
+    use_trunk: bool,
 }
 
 impl SleighConfigurations {
@@ -107,9 +110,10 @@ impl SleighConfigurations {
     /// Returns `None` if the total weight can't be evenly divided by 3, or if the biggest package
     /// is bigger than 1/3 of the total weight, because in those circumstances no valid sleigh
     /// configurations can be generated.
-    pub fn new(packages: Vec<Package>) -> Option<SleighConfigurations> {
+    pub fn new(packages: Vec<Package>, use_trunk: bool) -> Option<SleighConfigurations> {
+        let spaces = if use_trunk {4} else {3};
         let total = packages.iter().fold(0, |acc, item| acc + item);
-        if total % 3 != 0 {
+        if total % spaces != 0 {
             // Invalid configuration; the packages can't be divided into groups of three equal weights
             return None;
         }
@@ -118,7 +122,7 @@ impl SleighConfigurations {
         packages.sort();
 
         if let Some(biggest) = packages.last() {
-            if biggest > &(total / 3) {
+            if biggest > &(total / spaces) {
                 // Invalid configuration: the biggest item won't fit into any group
                 return None;
             }
@@ -126,8 +130,9 @@ impl SleighConfigurations {
 
         Some(SleighConfigurations {
             packages: packages.clone(),
-            side_wt: total / 3,
-            foot_iter: SummedSubsets::new(packages, total / 3)
+            side_wt: total / spaces,
+            foot_iter: SummedSubsets::new(packages, total / spaces),
+            use_trunk: use_trunk,
         })
     }
 
@@ -139,8 +144,8 @@ impl SleighConfigurations {
     ///
     /// Returns None if the `SleighConfigurations::new()` constructor does for the given packages,
     /// or if no legal configuration can be computed.
-    pub fn best(packages: Vec<Package>) -> Option<Sleigh> {
-        let sc = SleighConfigurations::new(packages);
+    pub fn best(packages: Vec<Package>, use_trunk: bool) -> Option<Sleigh> {
+        let sc = SleighConfigurations::new(packages, use_trunk);
         if sc.is_none() {
             return None;
         }
@@ -199,12 +204,29 @@ impl Iterator for SleighConfigurations {
             return None;
         }
         let left_items = left_items.unwrap();
-        let right_items = list_set_subtract(&side_items, &left_items);
+
+        let right_items;
+        let trunk_items;
+
+        if !self.use_trunk {
+            right_items = list_set_subtract(&side_items, &left_items);
+            trunk_items = Vec::new();
+        } else {
+            // fill the trunk also
+            let right_rear_items = list_set_subtract(&side_items, &left_items);
+            let right_maybe = SummedSubsets::new(right_rear_items.clone(), self.side_wt).next();
+            if right_maybe.is_none() {
+                return None;
+            }
+            right_items = right_maybe.unwrap();
+            trunk_items = list_set_subtract(&right_rear_items, &right_items);
+        }
 
         Some(Sleigh {
             foot: next_foot,
             left: left_items,
             right: right_items,
+            trunk: trunk_items,
         })
     }
 }
@@ -219,6 +241,7 @@ mod tests {
             foot: vec![11, 9],
             left: vec![10, 8, 2],
             right: vec![7, 5, 4, 3, 1],
+            trunk: vec![],
         };
 
         assert_eq!(sleigh.foot_wt(), sleigh.left_wt());
@@ -229,6 +252,7 @@ mod tests {
             foot: vec![10, 9, 1],
             left: vec![11, 7, 2],
             right: vec![8, 5, 4, 3],
+            trunk: vec![],
         };
 
         assert_eq!(sleigh.foot_wt(), sleigh.left_wt());
@@ -239,8 +263,16 @@ mod tests {
     #[test]
     fn test_example() {
         let items = vec![1,2,3,4,5,7,8,9,10,11];
-        let best = SleighConfigurations::best(items).unwrap();
+        let best = SleighConfigurations::best(items, false).unwrap();
         println!("Best sleigh configuration: {:?}", best);
         assert_eq!(best.foot_qe(), 99);
+    }
+
+    #[test]
+    fn test_example_with_trunk() {
+        let items = vec![1,2,3,4,5,7,8,9,10,11];
+        let best = SleighConfigurations::best(items, true).unwrap();
+        println!("Best sleigh configuration: {:?}", best);
+        assert_eq!(best.foot_qe(), 44);
     }
 }
