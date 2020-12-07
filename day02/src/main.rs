@@ -1,47 +1,52 @@
-use day02::GiftBox;
+use aoc2015::{config::Config, website::get_input};
+use day02::{part1, part2};
 
-use std::io;
-use std::io::prelude::*;
+use color_eyre::eyre::Result;
+use std::path::PathBuf;
+use structopt::StructOpt;
 
-fn main() {
-    let mut paper = 0;
-    let mut ribbon = 0;
+const DAY: u8 = 2;
 
-    let input: io::Result<String> = get_input(
-        "Enter boxes, separated by '\\n', terminated by \
-                                               EOF: \n",
-    );
-    let input = match input {
-        Ok(x) => x,
-        Err(_) => return,
-    };
+#[derive(StructOpt, Debug)]
+struct RunArgs {
+    /// input file
+    #[structopt(long, parse(from_os_str))]
+    input: Option<PathBuf>,
 
-    for line in input.split("\n") {
-        let line = line.trim();
-        if line.len() == 0 {
-            continue;
-        }
-        if let Ok(g) = GiftBox::parse(line) {
-            paper += g.paper();
-            ribbon += g.ribbon();
-        } else {
-            println!("Failed to parse '{}'; aborting", line);
-            return;
-        }
-    }
+    /// skip part 1
+    #[structopt(long = "no-part1")]
+    no_part1: bool,
 
-    println!("Total paper required: {}", paper);
-    println!("Total ribbon required: {}", ribbon);
+    /// run part 2
+    #[structopt(long)]
+    part2: bool,
 }
 
-fn get_input(prompt: &str) -> io::Result<String> {
-    print!("{}", prompt);
+impl RunArgs {
+    fn input(&self) -> Result<PathBuf> {
+        match self.input {
+            None => {
+                let config = Config::load()?;
+                // this does nothing if the input file already exists, but
+                // simplifies the workflow after cloning the repo on a new computer
+                get_input(&config, DAY)?;
+                Ok(config.input_for(DAY))
+            }
+            Some(ref path) => Ok(path.clone()),
+        }
+    }
+}
 
-    // flush stdout explicitly so it shows up at the end of the line
-    io::stdout().flush()?;
+fn main() -> Result<()> {
+    color_eyre::install()?;
+    let args = RunArgs::from_args();
+    let input_path = args.input()?;
 
-    let mut input = String::new();
-    io::stdin().read_to_string(&mut input)?;
-
-    Ok(input)
+    if !args.no_part1 {
+        part1(&input_path)?;
+    }
+    if args.part2 {
+        part2(&input_path)?;
+    }
+    Ok(())
 }

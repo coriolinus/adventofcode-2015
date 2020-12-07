@@ -15,20 +15,16 @@
 //!   paper plus `6` square feet of slack, for a total of `58` square feet.
 //! - A present with dimensions `1x1x10` requires `2*1 + 2*10 + 2*10 = 42` square feet of wrapping
 //!   paper plus `1` square foot of slack, for a total of `43` square feet.
-//!
-//! # Code Examples
 
-#[derive(PartialEq, Eq, Debug)]
+use aoc2015::{geometry::vector3::Vector3, parse};
+use std::path::Path;
+use thiserror::Error;
+
+#[derive(PartialEq, Eq, Debug, parse_display::Display, parse_display::FromStr)]
+#[display("{dimensions.x}x{dimensions.y}x{dimensions.z}")]
 pub struct GiftBox {
-    // dimensions
-    x: i32,
-    y: i32,
-    z: i32,
-
-    // surface areas
-    xy: i32,
-    xz: i32,
-    yz: i32,
+    #[from_str(default)]
+    dimensions: Vector3,
 }
 
 impl GiftBox {
@@ -36,47 +32,31 @@ impl GiftBox {
     pub fn new(x: i32, y: i32, z: i32) -> Result<GiftBox, &'static str> {
         if x > 0 && y > 0 && z > 0 {
             Ok(GiftBox {
-                x: x,
-                y: y,
-                z: z,
-                xy: x * y,
-                xz: x * z,
-                yz: y * z,
+                dimensions: Vector3 { x, y, z },
             })
         } else {
             Err("Can't construct a box with dimension 0 or less!")
         }
     }
 
-    /// Parse a new GiftBox from a string of the type "1x2x3"
-    ///
-    /// Formally, this expects 3 integers separated by two x's, with no spaces or other characters.
-    pub fn parse(input: &str) -> Result<GiftBox, &'static str> {
-        // split on 'x'
-        let ivec: Vec<&str> = input.split('x').collect();
-        if ivec.len() != 3 {
-            return Err("input did not contain two 'x' chars; could not parse");
-        }
-
-        let x = ivec[0].parse::<i32>();
-        let y = ivec[1].parse::<i32>();
-        let z = ivec[2].parse::<i32>();
-
-        if let (Ok(x), Ok(y), Ok(z)) = (x, y, z) {
-            GiftBox::new(x, y, z)
-        } else {
-            Err("Failed to parse input as i32")
-        }
-    }
-
     /// Return the surface area.
     pub fn surface_area(&self) -> i32 {
-        2 * (self.xz + self.xy + self.yz)
+        2 * ((self.dimensions.x * self.dimensions.z)
+            + (self.dimensions.x * self.dimensions.y)
+            + (self.dimensions.y * self.dimensions.z))
     }
 
     /// Return the margin: the area of the smallest side
     pub fn smallest_side(&self) -> i32 {
-        std::cmp::min(self.xy, std::cmp::min(self.xz, self.yz))
+        [
+            (self.dimensions.x * self.dimensions.z),
+            (self.dimensions.x * self.dimensions.y),
+            (self.dimensions.y * self.dimensions.z),
+        ]
+        .iter()
+        .min()
+        .cloned()
+        .expect("non-empty input array; qed")
     }
 
     /// Return the paper requirement for this box
@@ -87,15 +67,19 @@ impl GiftBox {
     }
 
     pub fn volume(&self) -> i32 {
-        self.x * self.y * self.z
+        self.dimensions.x * self.dimensions.y * self.dimensions.z
     }
 
     pub fn largest_dimension(&self) -> i32 {
-        std::cmp::max(self.x, std::cmp::max(self.y, self.z))
+        [self.dimensions.x, self.dimensions.y, self.dimensions.z]
+            .iter()
+            .max()
+            .copied()
+            .expect("non-empty array; qed")
     }
 
     pub fn smallest_side_perimeter(&self) -> i32 {
-        2 * (self.x + self.y + self.z - self.largest_dimension())
+        2 * (self.dimensions.x + self.dimensions.y + self.dimensions.z - self.largest_dimension())
     }
 
     /// Return the ribbon requirement for this box
@@ -104,6 +88,28 @@ impl GiftBox {
     pub fn ribbon(&self) -> i32 {
         self.volume() + self.smallest_side_perimeter()
     }
+}
+
+pub fn part1(input: &Path) -> Result<(), Error> {
+    let paper: i32 = parse::<GiftBox>(input)?
+        .map(|gift_box| gift_box.paper())
+        .sum();
+    println!("total paper required: {}", paper);
+    Ok(())
+}
+
+pub fn part2(input: &Path) -> Result<(), Error> {
+    let ribbon: i32 = parse::<GiftBox>(input)?
+        .map(|gift_box| gift_box.ribbon())
+        .sum();
+    println!("total ribbon required: {}", ribbon);
+    Ok(())
+}
+
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
 }
 
 #[cfg(test)]
