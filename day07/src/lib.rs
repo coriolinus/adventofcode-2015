@@ -24,14 +24,12 @@
 //!   reason, you'd like to emulate the circuit instead, almost all programming languages (for
 //!   example, C, JavaScript, or Python) provide operators for these gates.
 
-#[macro_use]
-
-pub mod wire;
 mod evaluable;
 pub mod evaluator;
 pub mod instruction;
 mod name;
 pub mod parse;
+pub mod wire;
 
 use evaluator::Evaluator;
 use parse::Parseable;

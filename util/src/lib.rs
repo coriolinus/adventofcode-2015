@@ -1,4 +1,3 @@
-#[macro_use]
 use std::io;
 use std::io::prelude::*;
 
