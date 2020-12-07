@@ -33,7 +33,6 @@
 //! What is the lowest house number of the house to get at least as many presents as the number in
 //! your puzzle input?
 
-extern crate permutohedron;
 use permutohedron::heap_recursive;
 
 use std::collections::HashSet;
@@ -48,7 +47,6 @@ pub struct SieveOfErasthenes {
     through: usize,
 }
 
-
 impl SieveOfErasthenes {
     pub fn new() -> SieveOfErasthenes {
         SieveOfErasthenes {
@@ -56,7 +54,6 @@ impl SieveOfErasthenes {
             through: 47,
         }
     }
-
 
     /// Return a list of unique prime factors of `num`
     pub fn prime_factors(&mut self, num: usize) -> Vec<usize> {
@@ -107,7 +104,12 @@ impl SieveOfErasthenes {
         let pl = prime_factors.len();
         heap_recursive(&mut prime_factors, |factor_ordering| {
             for how_many in 2..pl {
-                ret.insert(factor_ordering.iter().take(how_many).fold(1, |acc, item| acc * item));
+                ret.insert(
+                    factor_ordering
+                        .iter()
+                        .take(how_many)
+                        .fold(1, |acc, item| acc * item),
+                );
             }
         });
 
@@ -176,7 +178,11 @@ pub fn first_house_with_n_presents_limited(n: usize) -> usize {
     // stop by and drop off that many right away
     let mut houses = vec![0; stop];
     for elf in 1..stop {
-        for j in (1..).map(|jj| jj * elf).take_while(|jj| jj < &stop).take(50) {
+        for j in (1..)
+            .map(|jj| jj * elf)
+            .take_while(|jj| jj < &stop)
+            .take(50)
+        {
             houses[j] += elf * 11;
         }
     }
@@ -194,9 +200,10 @@ mod tests {
 
     #[test]
     fn test_sieve() {
-        let expected = vec![2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61,
-                            67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137,
-                            139, 149];
+        let expected = vec![
+            2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83,
+            89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149,
+        ];
 
         let mut e = SieveOfErasthenes::new();
         e.calc_through(150);
@@ -218,8 +225,10 @@ mod tests {
     #[test]
     fn test_factorize() {
         let mut sieve = SieveOfErasthenes::new();
-        let expected = vec![1, 2, 3, 4, 5, 6, 8, 9, 10, 12, 15, 18, 20, 24, 30, 36, 40, 45, 60,
-                            72, 90, 120, 180, 360];
+        let expected = vec![
+            1, 2, 3, 4, 5, 6, 8, 9, 10, 12, 15, 18, 20, 24, 30, 36, 40, 45, 60, 72, 90, 120, 180,
+            360,
+        ];
         assert_eq!(sieve.factorize(360), expected);
     }
 

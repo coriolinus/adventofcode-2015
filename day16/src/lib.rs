@@ -46,7 +46,6 @@
 use std::collections::HashMap;
 use std::str::FromStr;
 
-extern crate util;
 use util::parse::Parser;
 
 #[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
@@ -62,8 +61,9 @@ pub enum MfcsamItem {
     Cars,
     Perfumes,
 }
-use MfcsamItem::{Children, Cats, Samoyeds, Pomeranians, Akitas, Vizslas, Goldfish, Trees, Cars,
-                 Perfumes};
+use MfcsamItem::{
+    Akitas, Cars, Cats, Children, Goldfish, Perfumes, Pomeranians, Samoyeds, Trees, Vizslas,
+};
 
 fn get_mfcsam_item(item: &str) -> Option<MfcsamItem> {
     let mut h = HashMap::new();
@@ -127,13 +127,13 @@ impl Sue {
         }
 
         let parser = Parser::default()
-                         .clear_trailing_punctuation(true)
-                         .require_at_least(Some(2))
-                         .fixed_tokens({
-                             let mut h = HashMap::new();
-                             h.insert(0, "sue".to_string());
-                             h
-                         });
+            .clear_trailing_punctuation(true)
+            .require_at_least(Some(2))
+            .fixed_tokens({
+                let mut h = HashMap::new();
+                h.insert(0, "sue".to_string());
+                h
+            });
 
         match parser.parse(line) {
             Err(_) => None,

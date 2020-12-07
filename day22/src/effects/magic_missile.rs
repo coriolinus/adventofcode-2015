@@ -1,7 +1,7 @@
 use super::super::Character;
 
-use super::Effects;
 use super::EffectImpl;
+use super::Effects;
 use super::Magic;
 
 pub struct MagicMissile {
@@ -28,11 +28,7 @@ impl MagicMissile {
 impl Magic for MagicMissile {
     fn on_cast(&self, player: &mut Character, boss: &mut Character) {
         player.mana -= self.ei.mana_cost;
-        boss.hp = if boss.hp >= 4 {
-            boss.hp - 4
-        } else {
-            0
-        };
+        boss.hp = if boss.hp >= 4 { boss.hp - 4 } else { 0 };
     }
 
     fn on_cast_str(&self) -> String {

@@ -2,11 +2,10 @@
 
 use std::fmt;
 
-use std::str::FromStr;
 use std::collections::HashMap;
+use std::str::FromStr;
 
-extern crate util;
-use self::util::parse::Parser;
+use util::parse::Parser;
 
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct Ingredient {
@@ -26,17 +25,17 @@ impl Ingredient {
         }
 
         let parser = Parser::default()
-                         .require_at_least(Some(11))
-                         .require_fewer_than(Some(12))
-                         .fixed_tokens({
-                             let mut h = HashMap::new();
-                             h.insert(1, "capacity".to_string());
-                             h.insert(3, "durability".to_string());
-                             h.insert(5, "flavor".to_string());
-                             h.insert(7, "texture".to_string());
-                             h.insert(9, "calories".to_string());
-                             h
-                         });
+            .require_at_least(Some(11))
+            .require_fewer_than(Some(12))
+            .fixed_tokens({
+                let mut h = HashMap::new();
+                h.insert(1, "capacity".to_string());
+                h.insert(3, "durability".to_string());
+                h.insert(5, "flavor".to_string());
+                h.insert(7, "texture".to_string());
+                h.insert(9, "calories".to_string());
+                h
+            });
 
         if let Ok(parse_result) = parser.parse(line) {
             let ref name = parse_result.tokens[0];

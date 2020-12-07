@@ -83,10 +83,10 @@ impl Iterator for EggnogFiller {
         if self.into.len() > 0 {
             if self.recursor.is_none() {
                 self.preserve_biggest = true;
-                self.recursor = Some(Box::new(EggnogFiller::new_given_sorted(self.from -
-                                                                             self.biggest,
-                                                                             self.into
-                                                                                 .clone())));
+                self.recursor = Some(Box::new(EggnogFiller::new_given_sorted(
+                    self.from - self.biggest,
+                    self.into.clone(),
+                )));
             }
             let mut clear_biggest = false;
             if let Some(ref mut sub_solution_iter) = self.recursor {

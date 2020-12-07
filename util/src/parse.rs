@@ -5,6 +5,7 @@
 //! functions and then call its
 //! `.parse()` method.
 
+use lazy_static::lazy_static;
 use std::collections::{HashMap, HashSet};
 
 lazy_static! {
@@ -15,7 +16,6 @@ lazy_static! {
         }
         letters
     };
-
     static ref NUMBERS: HashSet<char> = {
         let mut numbers = HashSet::new();
         for number in "1234567890".chars() {
@@ -23,7 +23,6 @@ lazy_static! {
         }
         numbers
     };
-
     static ref PUNCTUATION: HashSet<char> = {
         let mut punctuation = HashSet::new();
         for p in ".,:?!;%".chars() {
@@ -32,7 +31,6 @@ lazy_static! {
         punctuation
     };
 }
-
 
 /// True if the input is nothing but lowercase ASCII letters.
 pub fn is_just_letters(s: &str) -> bool {
@@ -102,14 +100,20 @@ impl Parser {
     ///
     /// Default: `Right`
     pub fn direction(&self, pd: ParseDirection) -> Parser {
-        Parser { direction: pd, ..self.to_owned() }
+        Parser {
+            direction: pd,
+            ..self.to_owned()
+        }
     }
 
     /// This is the substr searched for to tokenize the input.
     ///
     /// Default: `" "`
     pub fn tokenizer_split(&self, ts: &str) -> Parser {
-        Parser { tokenizer_split: ts.to_string(), ..self.to_owned() }
+        Parser {
+            tokenizer_split: ts.to_string(),
+            ..self.to_owned()
+        }
     }
 
     /// These tokens must be present at the indicated position or the parse will fail.
@@ -129,14 +133,20 @@ impl Parser {
     ///
     /// Default: `HashMap::new()`
     pub fn fixed_tokens(&self, ft: HashMap<usize, String>) -> Parser {
-        Parser { fixed_tokens: ft, ..self.to_owned() }
+        Parser {
+            fixed_tokens: ft,
+            ..self.to_owned()
+        }
     }
 
     /// Convert every token to lowercase when true.
     ///
     /// Default: `true`.
     pub fn force_lowercase(&self, fl: bool) -> Parser {
-        Parser { force_lowercase: fl, ..self.to_owned() }
+        Parser {
+            force_lowercase: fl,
+            ..self.to_owned()
+        }
     }
 
     /// Consume only `N` tokens if it is not `None`.
@@ -147,7 +157,10 @@ impl Parser {
     ///
     /// Default: `None`.
     pub fn consume_only(&self, n: Option<usize>) -> Parser {
-        Parser { consume_only: n, ..self.to_owned() }
+        Parser {
+            consume_only: n,
+            ..self.to_owned()
+        }
     }
 
     /// Require at least `N` tokens if it is not `None`.
@@ -156,7 +169,10 @@ impl Parser {
     ///
     /// Default: `None`.
     pub fn require_at_least(&self, n: Option<usize>) -> Parser {
-        Parser { require_at_least: n, ..self.to_owned() }
+        Parser {
+            require_at_least: n,
+            ..self.to_owned()
+        }
     }
 
     /// Require fewer than `N` tokens if it is not `None`.
@@ -165,7 +181,10 @@ impl Parser {
     ///
     /// Default: `None`.
     pub fn require_fewer_than(&self, n: Option<usize>) -> Parser {
-        Parser { require_fewer_than: n, ..self.to_owned() }
+        Parser {
+            require_fewer_than: n,
+            ..self.to_owned()
+        }
     }
 
     /// If `true`, check every token's last character. If it's punctuation, drop it.
@@ -176,7 +195,10 @@ impl Parser {
     ///
     /// Default: `false`.
     pub fn clear_trailing_punctuation(&self, c: bool) -> Parser {
-        Parser { clear_trailing_punctuation: c, ..self.to_owned() }
+        Parser {
+            clear_trailing_punctuation: c,
+            ..self.to_owned()
+        }
     }
 
     /// Parse a string using these options, if you only care about a few of the tokens.
@@ -213,10 +235,11 @@ impl Parser {
     /// assert_eq!(fly, "1");
     /// assert_eq!(rest, "36");
     /// ```
-    pub fn parse_named(&self,
-                       names: HashMap<usize, String>,
-                       input: &str)
-                       -> Result<HashMap<String, String>, ParseError> {
+    pub fn parse_named(
+        &self,
+        names: HashMap<usize, String>,
+        input: &str,
+    ) -> Result<HashMap<String, String>, ParseError> {
         if names.is_empty() {
             return Err(ParseError::InputIsEmpty);
         }
@@ -306,7 +329,6 @@ impl Parser {
     }
 }
 
-
 pub struct ParseResult {
     pub tokens: Vec<String>,
     pub rest: Option<Vec<String>>,
@@ -332,11 +354,10 @@ pub fn parse(input: &str) -> Result<ParseResult, ParseError> {
     Parser::default().parse(input)
 }
 
-
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
     use super::{parse, ParseDirection, ParseError, Parser};
+    use std::collections::HashMap;
 
     #[test]
     fn test_parse_wires() {
@@ -344,25 +365,27 @@ mod tests {
         let results = vec![vec!["x"], vec!["h"], vec!["f"]];
         let rests = vec![vec!["123"], vec!["x", "not"], vec!["2", "lshift", "x"]];
 
-        let results: Vec<Vec<String>> = results.iter()
-                                               .map(|v| v.iter().map(|&s| s.to_string()).collect())
-                                               .collect();
-        let rests: Vec<Vec<String>> = rests.iter()
-                                           .map(|v| v.iter().map(|&s| s.to_string()).collect())
-                                           .collect();
+        let results: Vec<Vec<String>> = results
+            .iter()
+            .map(|v| v.iter().map(|&s| s.to_string()).collect())
+            .collect();
+        let rests: Vec<Vec<String>> = rests
+            .iter()
+            .map(|v| v.iter().map(|&s| s.to_string()).collect())
+            .collect();
 
         let expected = results.iter().zip(rests);
 
         let po = Parser::default()
-                     .direction(ParseDirection::Left)
-                     .require_at_least(Some(3))
-                     .require_fewer_than(Some(6))
-                     .consume_only(Some(2))
-                     .fixed_tokens({
-                         let mut h = HashMap::new();
-                         h.insert(1, "->".to_string());
-                         h
-                     });
+            .direction(ParseDirection::Left)
+            .require_at_least(Some(3))
+            .require_fewer_than(Some(6))
+            .consume_only(Some(2))
+            .fixed_tokens({
+                let mut h = HashMap::new();
+                h.insert(1, "->".to_string());
+                h
+            });
 
         for (wire, (result, rest)) in wires.iter().zip(expected) {
             let pr = po.parse(wire);
@@ -384,7 +407,9 @@ mod tests {
 
     #[test]
     fn test_parse_too_many_fails() {
-        let pr = Parser::default().require_fewer_than(Some(2)).parse("foo bar");
+        let pr = Parser::default()
+            .require_fewer_than(Some(2))
+            .parse("foo bar");
         match pr {
             Err(ParseError::TooManyTokens) => {}
             _ => panic!(),
@@ -403,12 +428,12 @@ mod tests {
     #[test]
     fn test_parse_fixed_token_not_found() {
         let pr = Parser::default()
-                     .fixed_tokens({
-                         let mut h = HashMap::new();
-                         h.insert(0, "->".to_string());
-                         h
-                     })
-                     .parse("<-");
+            .fixed_tokens({
+                let mut h = HashMap::new();
+                h.insert(0, "->".to_string());
+                h
+            })
+            .parse("<-");
         match pr {
             Err(ParseError::TokenMismatchOnFixedKey) => {}
             _ => panic!(),

@@ -1,0 +1,10 @@
+[package]
+name = "day04"
+version = "0.1.0"
+authors = ["coriolinus <coriolinus@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+util = { path = "../util"}
+num_cpus = "^0.2"
+rust-crypto = "^0.2"

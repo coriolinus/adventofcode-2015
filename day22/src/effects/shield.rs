@@ -1,7 +1,7 @@
 use super::super::Character;
 
-use super::Effects;
 use super::EffectImpl;
+use super::Effects;
 use super::Magic;
 
 pub struct Shield {

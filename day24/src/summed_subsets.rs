@@ -1,5 +1,5 @@
-use std::ops;
 use std::fmt::Debug;
+use std::ops;
 
 /// An iterator over subsets of the numbers `N` such that the sum of each subset is equal to a given target.
 ///
@@ -12,7 +12,9 @@ pub struct SummedSubsets<N> {
     sub_iterator: Option<Box<SummedSubsets<N>>>,
 }
 
-impl<N> SummedSubsets<N> where N: Ord + Default + Debug
+impl<N> SummedSubsets<N>
+where
+    N: Ord + Default + Debug,
 {
     fn default() -> SummedSubsets<N> {
         SummedSubsets {
@@ -53,7 +55,9 @@ impl<N> SummedSubsets<N> where N: Ord + Default + Debug
     }
 }
 
-impl<N> Iterator for SummedSubsets<N> where N: Clone + Ord + Default + Debug + ops::Sub<Output = N>
+impl<N> Iterator for SummedSubsets<N>
+where
+    N: Clone + Ord + Default + Debug + ops::Sub<Output = N>,
 {
     type Item = Vec<N>;
 
@@ -85,9 +89,10 @@ impl<N> Iterator for SummedSubsets<N> where N: Clone + Ord + Default + Debug + o
 
         // Ok, self.value is greater than any item in self.items, but less than self.target. This
         // is when we need a sub-iterator.
-        self.sub_iterator = Some(Box::new(SummedSubsets::new(self.items.clone(),
-                                                             self.target.clone() -
-                                                             self.value.clone())));
+        self.sub_iterator = Some(Box::new(SummedSubsets::new(
+            self.items.clone(),
+            self.target.clone() - self.value.clone(),
+        )));
         self.next()
     }
 }
@@ -102,33 +107,34 @@ mod tests {
         let values = vec![1, 2, 3, 4, 5, 7, 8, 9, 10, 11];
         let target = 20;
 
-        let some_expected = vec![vec![9, 11],
-                                 vec![1, 8, 11],
-                                 vec![2, 7, 11],
-                                 vec![1, 9, 10],
-                                 vec![2, 8, 10],
-                                 vec![3, 7, 10],
-                                 vec![1, 4, 5, 10],
-                                 vec![2, 3, 5, 10],
-                                 vec![1, 2, 3, 4, 10],
-                                 vec![3, 8, 9],
-                                 vec![4, 7, 9],
-                                 vec![2, 4, 5, 9],
-                                 vec![5, 7, 8],
-                                 vec![3, 4, 5, 8],
-                                 vec![1, 3, 4, 5, 7]];
-
-
+        let some_expected = vec![
+            vec![9, 11],
+            vec![1, 8, 11],
+            vec![2, 7, 11],
+            vec![1, 9, 10],
+            vec![2, 8, 10],
+            vec![3, 7, 10],
+            vec![1, 4, 5, 10],
+            vec![2, 3, 5, 10],
+            vec![1, 2, 3, 4, 10],
+            vec![3, 8, 9],
+            vec![4, 7, 9],
+            vec![2, 4, 5, 9],
+            vec![5, 7, 8],
+            vec![3, 4, 5, 8],
+            vec![1, 3, 4, 5, 7],
+        ];
 
         let mut results = HashSet::new();
         results.extend(SummedSubsets::new(values, target));
-        let mut rp = results.iter()
-                            .map(|v| {
-                                let mut v = v.clone();
-                                v.reverse();
-                                v
-                            })
-                            .collect::<Vec<_>>();
+        let mut rp = results
+            .iter()
+            .map(|v| {
+                let mut v = v.clone();
+                v.reverse();
+                v
+            })
+            .collect::<Vec<_>>();
         rp.sort();
 
         println!("");

@@ -1,7 +1,7 @@
 use super::super::Character;
 
-use super::Effects;
 use super::EffectImpl;
+use super::Effects;
 use super::Magic;
 
 pub struct Drain {
@@ -29,11 +29,7 @@ impl Magic for Drain {
     fn on_cast(&self, player: &mut Character, boss: &mut Character) {
         player.mana -= self.ei.mana_cost;
         player.hp += 2;
-        boss.hp = if boss.hp >= 2 {
-            boss.hp - 2
-        } else {
-            0
-        };
+        boss.hp = if boss.hp >= 2 { boss.hp - 2 } else { 0 };
     }
 
     fn on_cast_str(&self) -> String {

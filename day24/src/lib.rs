@@ -67,19 +67,31 @@ pub struct Sleigh {
 impl Sleigh {
     /// Quantum Entanglement of the footwell of this sleigh.
     pub fn foot_qe(&self) -> u64 {
-        self.foot.iter().map(|&x| x as u64).fold(1, |acc, item| acc * item)
+        self.foot
+            .iter()
+            .map(|&x| x as u64)
+            .fold(1, |acc, item| acc * item)
     }
 
     pub fn foot_wt(&self) -> u16 {
-        self.foot.iter().map(|&x| x as u16).fold(0, |acc, item| acc + item)
+        self.foot
+            .iter()
+            .map(|&x| x as u16)
+            .fold(0, |acc, item| acc + item)
     }
 
     pub fn left_wt(&self) -> u16 {
-        self.left.iter().map(|&x| x as u16).fold(0, |acc, item| acc + item)
+        self.left
+            .iter()
+            .map(|&x| x as u16)
+            .fold(0, |acc, item| acc + item)
     }
 
     pub fn right_wt(&self) -> u16 {
-        self.right.iter().map(|&x| x as u16).fold(0, |acc, item| acc + item)
+        self.right
+            .iter()
+            .map(|&x| x as u16)
+            .fold(0, |acc, item| acc + item)
     }
 }
 
@@ -111,7 +123,7 @@ impl SleighConfigurations {
     /// is bigger than 1/3 of the total weight, because in those circumstances no valid sleigh
     /// configurations can be generated.
     pub fn new(packages: Vec<Package>, use_trunk: bool) -> Option<SleighConfigurations> {
-        let spaces = if use_trunk {4} else {3};
+        let spaces = if use_trunk { 4 } else { 3 };
         let total = packages.iter().fold(0, |acc, item| acc + item);
         if total % spaces != 0 {
             // Invalid configuration; the packages can't be divided into groups of three equal weights
@@ -262,7 +274,7 @@ mod tests {
 
     #[test]
     fn test_example() {
-        let items = vec![1,2,3,4,5,7,8,9,10,11];
+        let items = vec![1, 2, 3, 4, 5, 7, 8, 9, 10, 11];
         let best = SleighConfigurations::best(items, false).unwrap();
         println!("Best sleigh configuration: {:?}", best);
         assert_eq!(best.foot_qe(), 99);
@@ -270,7 +282,7 @@ mod tests {
 
     #[test]
     fn test_example_with_trunk() {
-        let items = vec![1,2,3,4,5,7,8,9,10,11];
+        let items = vec![1, 2, 3, 4, 5, 7, 8, 9, 10, 11];
         let best = SleighConfigurations::best(items, true).unwrap();
         println!("Best sleigh configuration: {:?}", best);
         assert_eq!(best.foot_qe(), 44);

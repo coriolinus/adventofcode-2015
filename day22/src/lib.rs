@@ -134,12 +134,12 @@
 //! mana recharge effects as "spending" negative mana.)
 
 pub mod effects;
-use effects::{Magic, Effects, EffectImpl};
-use effects::magic_missile::MagicMissile;
 use effects::drain::Drain;
-use effects::shield::Shield;
+use effects::magic_missile::MagicMissile;
 use effects::poison::Poison;
 use effects::recharge::Recharge;
+use effects::shield::Shield;
+use effects::{EffectImpl, Effects, Magic};
 
 use std::collections::VecDeque;
 
@@ -283,7 +283,8 @@ impl Arena {
     pub fn turn(&mut self) -> Result<Vec<Arena>, CharacterType> {
         // did the player win last turn?
         if self.boss.hp == 0 {
-            self.turn_log.push_str("This kills the boss, and the player wins.\n");
+            self.turn_log
+                .push_str("This kills the boss, and the player wins.\n");
             return Err(CharacterType::Player);
         }
 
@@ -291,7 +292,10 @@ impl Arena {
         self.log.push('\n');
 
         self.turn_log = format!("-- {:?} turn --\n", self.turn);
-        let mut line = format!("- Player has {} hit points, {} armor, {} mana\n", self.player.hp, self.player.armor, self.player.mana);
+        let mut line = format!(
+            "- Player has {} hit points, {} armor, {} mana\n",
+            self.player.hp, self.player.armor, self.player.mana
+        );
         self.turn_log.push_str(&line);
         line = format!("- Boss has {} hit points\n", self.boss.hp);
         self.turn_log.push_str(&line);
@@ -301,7 +305,7 @@ impl Arena {
         // Effects apply at the start of each player's turn.
         for effectimpl in &self.effects {
             let ei = effectimpl.etype.clone();
-            let mut effect : Box<Magic> = match ei {
+            let mut effect: Box<Magic> = match ei {
                 Effects::Drain => Box::new(Drain::from_ei(effectimpl.clone())),
                 Effects::MagicMissile => Box::new(MagicMissile::from_ei(effectimpl.clone())),
                 Effects::Poison => Box::new(Poison::from_ei(effectimpl.clone())),
@@ -321,38 +325,48 @@ impl Arena {
 
         // has the player won yet?
         if self.boss.hp == 0 {
-            self.turn_log.push_str("This kills the boss, and the player wins.\n");
+            self.turn_log
+                .push_str("This kills the boss, and the player wins.\n");
             return Err(CharacterType::Player);
         }
 
         match self.turn {
             CharacterType::Boss => {
-                    let damage = if self.boss.damage > self.player.armor {self.boss.damage - self.player.armor} else {1};
-                    self.turn_log.push_str(&format!("Boss attacks for {} - {} = {} damage!\n", self.boss.damage, self.player.armor, damage));
-                    if self.player.hp > damage {
-                        self.player.hp -= damage;
-                        let mut ret = self.clone();
-                        ret.turn = CharacterType::Player;
-                        Ok(vec![self.future()])
-                    } else {
-                        // damage >= self.player.hp
-                        self.turn_log.push_str("This kills the player, and the boss wins.\n");
-                        self.player.hp = 0;
-                        Err(CharacterType::Boss)
-                    }
-
-            },
+                let damage = if self.boss.damage > self.player.armor {
+                    self.boss.damage - self.player.armor
+                } else {
+                    1
+                };
+                self.turn_log.push_str(&format!(
+                    "Boss attacks for {} - {} = {} damage!\n",
+                    self.boss.damage, self.player.armor, damage
+                ));
+                if self.player.hp > damage {
+                    self.player.hp -= damage;
+                    let mut ret = self.clone();
+                    ret.turn = CharacterType::Player;
+                    Ok(vec![self.future()])
+                } else {
+                    // damage >= self.player.hp
+                    self.turn_log
+                        .push_str("This kills the player, and the boss wins.\n");
+                    self.player.hp = 0;
+                    Err(CharacterType::Boss)
+                }
+            }
             CharacterType::Player => {
                 if self.player.hp > 0 {
                     // For each spell we can cast, add a future in which we cast it
                     let mut ret = Vec::new();
 
                     // sorted from low mana to high, for correct results
-                    let spells: Vec<Box<Magic>> = vec![Box::new(MagicMissile::new()),
-                                                       Box::new(Drain::new()),
-                                                       Box::new(Shield::new()),
-                                                       Box::new(Poison::new()),
-                                                       Box::new(Recharge::new())];
+                    let spells: Vec<Box<Magic>> = vec![
+                        Box::new(MagicMissile::new()),
+                        Box::new(Drain::new()),
+                        Box::new(Shield::new()),
+                        Box::new(Poison::new()),
+                        Box::new(Recharge::new()),
+                    ];
                     for spell in spells {
                         if let Some(future) = self.attempt_spell(&*spell) {
                             ret.push(future)
@@ -366,7 +380,7 @@ impl Arena {
                 } else {
                     Err(CharacterType::Boss)
                 }
-            },
+            }
         }
     }
 
@@ -392,12 +406,16 @@ pub fn breadth_first_victory_search_with_difficulty(arena: Arena, hard: bool) ->
     buffer.push_back(arena);
     while !buffer.is_empty() {
         let mut arena = buffer.pop_front().unwrap();
-        match if hard {arena.hard_turn()} else {arena.turn()} {
+        match if hard {
+            arena.hard_turn()
+        } else {
+            arena.turn()
+        } {
             Ok(futures) => {
-                if ! found_victory {
+                if !found_victory {
                     buffer.extend(futures);
                 }
-            },
+            }
             Err(victor) => {
                 if victor == CharacterType::Player {
                     found_victory = true;
@@ -406,16 +424,20 @@ pub fn breadth_first_victory_search_with_difficulty(arena: Arena, hard: bool) ->
             }
         }
     }
-    candidates.iter().fold(None, |acc,  c| match acc {
-        None => Some(c),
-        Some(oc) => Some(if oc.mana_spent <= c.mana_spent {oc} else {c}),
-    }).unwrap().clone()
+    candidates
+        .iter()
+        .fold(None, |acc, c| match acc {
+            None => Some(c),
+            Some(oc) => Some(if oc.mana_spent <= c.mana_spent { oc } else { c }),
+        })
+        .unwrap()
+        .clone()
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::effects::Effects;
+    use super::*;
 
     fn expect_spell(oarena: Option<Arena>, spell: Effects) -> Option<Arena> {
         match oarena {
@@ -431,7 +453,7 @@ mod tests {
                             }
                         }
                         None
-                    },
+                    }
                 }
             }
         }
@@ -444,18 +466,23 @@ mod tests {
                 let res = arena.turn();
                 match res {
                     Err(_) => None,
-                    Ok(futures) => {
-                        match futures.len() {
-                            1 => Some(futures[0].clone()),
-                            _ => None,
-                        }
-                    }
+                    Ok(futures) => match futures.len() {
+                        1 => Some(futures[0].clone()),
+                        _ => None,
+                    },
                 }
             }
         }
     }
 
-    fn expect_turn(arena: &Option<Arena>, turn: CharacterType, player_hp: u8, player_armor: u8, player_mana: u16, boss_hp: u8) {
+    fn expect_turn(
+        arena: &Option<Arena>,
+        turn: CharacterType,
+        player_hp: u8,
+        player_armor: u8,
+        player_mana: u16,
+        boss_hp: u8,
+    ) {
         assert!(arena.is_some());
         let arena = arena.clone().unwrap();
         assert_eq!(arena.turn, turn);

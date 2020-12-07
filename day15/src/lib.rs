@@ -20,9 +20,6 @@
 //!
 //! This program hill-climbs to a local maximum and hopes for the best.
 
-
-
-
 pub mod ingredient;
 use ingredient::Ingredient;
 pub mod recipe;
@@ -46,7 +43,8 @@ mod tests {
     use super::recipe::Recipe;
 
     fn get_example() -> String {
-        let mut s = "Butterscotch: capacity -1, durability -2, flavor 6, texture 3, calories 8\n".to_string();
+        let mut s = "Butterscotch: capacity -1, durability -2, flavor 6, texture 3, calories 8\n"
+            .to_string();
         s.push_str("Cinnamon: capacity 2, durability 3, flavor -2, texture -1, calories 3\n");
         s
     }

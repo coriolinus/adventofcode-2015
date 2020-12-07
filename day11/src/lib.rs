@@ -86,9 +86,10 @@ fn contains_straight(s: &str) -> bool {
         return false;
     }
 
-    let triple_it = s.chars()
-                     .zip(s.chars().skip(1).zip(s.chars().skip(2)))
-                     .map(|(x, (y, z))| (x, y, z));
+    let triple_it = s
+        .chars()
+        .zip(s.chars().skip(1).zip(s.chars().skip(2)))
+        .map(|(x, (y, z))| (x, y, z));
 
     for (x, y, z) in triple_it {
         if let Some(x1) = increment_char_given_alphabet(x, "abcdefghijklmnopqrstuvwxyz") {
@@ -140,13 +141,17 @@ pub fn next_pw(s: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{increment, meets_requirements, next_pw};
     use super::contains_straight;
+    use super::{increment, meets_requirements, next_pw};
 
     #[test]
     fn test_increment() {
-        let from = vec!["", "a", "h", "k", "n", "z", "xy", "xz", "ya", "zz", "hepxcrrq"];
-        let to = vec!["a", "b", "j", "m", "p", "aa", "xz", "ya", "yb", "aaa", "hepxcrrr"];
+        let from = vec![
+            "", "a", "h", "k", "n", "z", "xy", "xz", "ya", "zz", "hepxcrrq",
+        ];
+        let to = vec![
+            "a", "b", "j", "m", "p", "aa", "xz", "ya", "yb", "aaa", "hepxcrrr",
+        ];
 
         for (from, to) in from.iter().zip(to) {
             assert_eq!(increment(from), to.to_string());
@@ -175,7 +180,9 @@ mod tests {
 
     #[test]
     fn test_contains_straight() {
-        let from = vec!["hijklmmn", "abbceffg", "abbcegjk", "abcdffaa", "ghjaabcc", "ghjaaabb"];
+        let from = vec![
+            "hijklmmn", "abbceffg", "abbcegjk", "abcdffaa", "ghjaabcc", "ghjaaabb",
+        ];
         let to = vec![true, false, false, true, true, false];
 
         for (from, to) in from.iter().zip(to) {

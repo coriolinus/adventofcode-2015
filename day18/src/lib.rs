@@ -89,7 +89,9 @@ pub struct LightGrid {
 /// for sparse or infinite-size grids, a HashMap-based implementation would be better.
 impl LightGrid {
     pub fn blank(edge: usize) -> LightGrid {
-        LightGrid { lights: vec![vec![false; edge]; edge] }
+        LightGrid {
+            lights: vec![vec![false; edge]; edge],
+        }
     }
 
     pub fn parse_lines(lines: &str) -> Option<LightGrid> {
@@ -137,10 +139,12 @@ impl LightGrid {
         let last = self.lights.len() - 1;
 
         if x > last || y > last {
-            panic!("Invalid coordinate ({}, {}) doesn't fit in edge length {}!",
-                   x,
-                   y,
-                   self.lights.len());
+            panic!(
+                "Invalid coordinate ({}, {}) doesn't fit in edge length {}!",
+                x,
+                y,
+                self.lights.len()
+            );
         }
 
         let mut xs = vec![x];
@@ -178,7 +182,6 @@ impl LightGrid {
 
         for x in 0..self.lights.len() {
             for y in 0..self.lights.len() {
-
                 ret.lights[y][x] = if self.lights[y][x] {
                     // A light which is on stays on when 2 or 3 neighbors are on, and turns off otherwise.
                     match self.count_adjacent_on(x, y) {
@@ -225,11 +228,7 @@ impl LightGrid {
         let mut ret = String::new();
         for y in 0..self.lights.len() {
             for x in 0..self.lights.len() {
-                ret.push_str(if self.lights[y][x] {
-                    "#"
-                } else {
-                    "."
-                });
+                ret.push_str(if self.lights[y][x] { "#" } else { "." });
             }
             ret.push_str("\n");
         }
@@ -289,8 +288,8 @@ mod tests {
         let example = get_example();
         let expected: Vec<u8> = vec![1, 0, 3, 2, 4, 1];
         let found = (0..6)
-                        .map(|x| example.count_adjacent_on(x, 0))
-                        .collect::<Vec<_>>();
+            .map(|x| example.count_adjacent_on(x, 0))
+            .collect::<Vec<_>>();
         assert_eq!(found, expected);
     }
 }

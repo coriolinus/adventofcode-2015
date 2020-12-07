@@ -2,14 +2,7 @@
 name = "day15"
 version = "0.1.0"
 authors = ["coriolinus <coriolinus@gmail.com>"]
-
-[lib]
-name = "day15lib"
-path = "src/lib.rs"
-
-[[bin]]
-name = "day15bin"
-path = "src/bin.rs"
+edition = "2018"
 
 [dependencies]
 util = { path = "../util"}

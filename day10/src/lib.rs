@@ -1,4 +1,3 @@
-
 //! # Day 10: Elves Look, Elves Say
 //!
 //! Today, the Elves are playing a game called look-and-say. They take turns making sequences by
@@ -38,7 +37,6 @@ pub fn look_and_say(sequence: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::look_and_say;
-
 
     /// - `1` becomes `11` (1 copy of digit 1).
     /// - `11` becomes `21` (2 copies of digit 1).

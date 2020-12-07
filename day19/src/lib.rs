@@ -42,7 +42,6 @@
 //! molecule for which you need to calibrate the machine. How many distinct molecules can be
 //! created after all the different ways you can do one replacement on the medicine molecule?
 
-
 use std::collections::{HashMap, HashSet};
 
 pub mod countdistinct;
@@ -77,8 +76,6 @@ pub fn parse_replacements(lines: &str) -> Option<HashMap<String, Vec<String>>> {
     Some(ret)
 }
 
-
-
 /// An Iterator over simple transformations of a given string.
 ///
 /// Given a String to transform from, a String to transform to, and an input, the ChemTransformer
@@ -95,7 +92,10 @@ pub struct ChemTransformer {
 impl ChemTransformer {
     pub fn new(trans_from: String, trans_to: String, replace_item: String) -> ChemTransformer {
         ChemTransformer {
-            chunks: replace_item.split(&trans_from).map(|s| s.to_string()).collect::<Vec<String>>(),
+            chunks: replace_item
+                .split(&trans_from)
+                .map(|s| s.to_string())
+                .collect::<Vec<String>>(),
             from: trans_from,
             to: trans_to,
             repl_index: 0,
@@ -150,9 +150,10 @@ pub struct TransformEnumerator<'a> {
 }
 
 impl<'a> TransformEnumerator<'a> {
-    pub fn new<'t>(transforms: &'t HashMap<String, Vec<String>>,
-                   input: &str)
-                   -> TransformEnumerator<'t> {
+    pub fn new<'t>(
+        transforms: &'t HashMap<String, Vec<String>>,
+        input: &str,
+    ) -> TransformEnumerator<'t> {
         TransformEnumerator {
             from: None,
             tos: None,
@@ -199,9 +200,11 @@ impl<'a> Iterator for TransformEnumerator<'a> {
             return self.next();
         }
         let cur_to = cur_to.unwrap();
-        self.ct = Some(ChemTransformer::new(self.from.as_mut().unwrap().clone(),
-                                            cur_to.to_owned(),
-                                            self.input.clone()));
+        self.ct = Some(ChemTransformer::new(
+            self.from.as_mut().unwrap().clone(),
+            cur_to.to_owned(),
+            self.input.clone(),
+        ));
         return self.next();
     }
 }
@@ -213,12 +216,12 @@ impl<'a> CountDistinct for TransformEnumerator<'a> {}
 /// Target to generate given in the parameter `target`.
 ///
 /// Returns `Vec<String>`, containing all mutations on the way to the target
-pub fn fabricate(transforms: &HashMap<String, Vec<String>>, target: &str) -> Option<Vec< String>> {
+pub fn fabricate(transforms: &HashMap<String, Vec<String>>, target: &str) -> Option<Vec<String>> {
     // to_examine: a list of tuples:
     // (next, history)
     // where next is simply the next thing to try,
     // and history is how we got there: a list of strings.
-    let mut to_examine : Vec<(String, Vec<String>)> = vec![("e".to_string(), Vec::new())];
+    let mut to_examine: Vec<(String, Vec<String>)> = vec![("e".to_string(), Vec::new())];
     let mut tried = HashSet::new();
 
     while to_examine.len() > 0 {
@@ -229,7 +232,8 @@ pub fn fabricate(transforms: &HashMap<String, Vec<String>>, target: &str) -> Opt
         }
         if tried.insert(ex.clone()) {
             // `.insert()` returns true if the value was not already present
-            for mutation in TransformEnumerator::new(transforms, &ex).filter(|m| !tried.contains(m)) {
+            for mutation in TransformEnumerator::new(transforms, &ex).filter(|m| !tried.contains(m))
+            {
                 to_examine.push((mutation, history.clone()));
             }
         }
@@ -242,12 +246,15 @@ pub fn fabricate(transforms: &HashMap<String, Vec<String>>, target: &str) -> Opt
 /// Target to generate given in the parameter `target`.
 ///
 /// Returns `usize`, the number of steps after `e` to generate the target
-pub fn fabricate_steps_count(transforms: &HashMap<String, Vec<String>>, target: &str) -> Option<usize> {
+pub fn fabricate_steps_count(
+    transforms: &HashMap<String, Vec<String>>,
+    target: &str,
+) -> Option<usize> {
     // to_examine: a list of tuples:
     // (next, history)
     // where next is simply the next thing to try,
     // and history is how we got there: a list of strings.
-    let mut to_examine : Vec<(String, usize)> = vec![("e".to_string(), 0)];
+    let mut to_examine: Vec<(String, usize)> = vec![("e".to_string(), 0)];
     let mut tried = HashSet::new();
 
     while to_examine.len() > 0 {
@@ -258,12 +265,14 @@ pub fn fabricate_steps_count(transforms: &HashMap<String, Vec<String>>, target: 
         history += 1;
         if tried.insert(ex.clone()) {
             // `.insert()` returns true if the value was not already present
-            for mutation in TransformEnumerator::new(transforms, &ex).filter(|m| !tried.contains(m)) {
+            for mutation in TransformEnumerator::new(transforms, &ex).filter(|m| !tried.contains(m))
+            {
                 // this depends on the fact that no mutation shortens the overall length of the string.
                 // That may not always be the case! Be careful with that!
                 if mutation.len() <= target.len() {
-                to_examine.push((mutation, history));
-            }}
+                    to_examine.push((mutation, history));
+                }
+            }
         }
     }
     None
@@ -271,20 +280,25 @@ pub fn fabricate_steps_count(transforms: &HashMap<String, Vec<String>>, target: 
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-    use super::*;
     use super::countdistinct::CountDistinct;
+    use super::*;
+    use std::collections::HashMap;
 
     #[test]
     fn test_chem_transformer() {
-        let tests = vec![("O", "HH", "HOH", vec!["HHHH"]),
-                         ("H", "HO", "HOH", vec!["HOOH", "HOHO"])];
+        let tests = vec![
+            ("O", "HH", "HOH", vec!["HHHH"]),
+            ("H", "HO", "HOH", vec!["HOOH", "HOHO"]),
+        ];
 
         for (from, to, input, expect) in tests {
             let from = from.to_string();
             let to = to.to_string();
             let input = input.to_string();
-            let expect = expect.iter().map(|s| s.to_string()).collect::<Vec<String>>();
+            let expect = expect
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<String>>();
 
             let ct = ChemTransformer::new(from, to, input);
             assert_eq!(ct.clone().count(), expect.len());
@@ -339,7 +353,10 @@ mod tests {
         assert_eq!(fabricate(&transforms, "e").unwrap(), vec!["e"]);
 
         println!("Fabricating 'HOH'...");
-        assert_eq!(fabricate(&transforms, "HOH").unwrap(), vec!["e", "O", "HH", "HOH"]);
+        assert_eq!(
+            fabricate(&transforms, "HOH").unwrap(),
+            vec!["e", "O", "HH", "HOH"]
+        );
 
         println!("Fabricating 'HOHOHO'...");
         assert_eq!(fabricate(&transforms, "HOHOHO").unwrap().len(), 7);

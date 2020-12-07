@@ -62,7 +62,6 @@
 //! You have `100` hit points. The boss's actual stats are in your puzzle input. What is the least
 //! amount of gold you can spend and still win the fight?
 
-
 #[derive(PartialEq, Eq, Copy, Clone, Debug, PartialOrd, Ord)]
 pub enum ItemType {
     Weapon,
@@ -155,11 +154,12 @@ pub struct Loadout {
 }
 
 impl Loadout {
-    pub fn new(weapon: Item,
-               armor: Option<Item>,
-               ring_l: Option<Item>,
-               ring_r: Option<Item>)
-               -> Option<Loadout> {
+    pub fn new(
+        weapon: Item,
+        armor: Option<Item>,
+        ring_l: Option<Item>,
+        ring_r: Option<Item>,
+    ) -> Option<Loadout> {
         if weapon.itype != ItemType::Weapon {
             return None;
         }
@@ -181,24 +181,35 @@ impl Loadout {
     }
 
     pub fn as_vec(&self) -> Vec<Item> {
-        vec![&Some(self.weapon.clone()), &self.armor, &self.ring_l, &self.ring_r]
-            .iter()
-            .filter(|ref i| i.is_some())
-            .cloned()
-            .map(|i| i.clone().unwrap())
-            .collect()
+        vec![
+            &Some(self.weapon.clone()),
+            &self.armor,
+            &self.ring_l,
+            &self.ring_r,
+        ]
+        .iter()
+        .filter(|ref i| i.is_some())
+        .cloned()
+        .map(|i| i.clone().unwrap())
+        .collect()
     }
 
     pub fn cost(&self) -> u32 {
-        self.as_vec().iter().fold(0, |acc, ref item| acc + item.cost)
+        self.as_vec()
+            .iter()
+            .fold(0, |acc, ref item| acc + item.cost)
     }
 
     pub fn damage(&self) -> u32 {
-        self.as_vec().iter().fold(0, |acc, ref item| acc + item.damage)
+        self.as_vec()
+            .iter()
+            .fold(0, |acc, ref item| acc + item.damage)
     }
 
     pub fn armor(&self) -> u32 {
-        self.as_vec().iter().fold(0, |acc, ref item| acc + item.armor)
+        self.as_vec()
+            .iter()
+            .fold(0, |acc, ref item| acc + item.armor)
     }
 
     pub fn upgrade_weapon(&mut self, weapons_list: &Vec<Item>) -> bool {
@@ -314,15 +325,15 @@ impl Loadout {
         // let's figure out the cost of upgrading the left ring:
         // It's the cost of the next left ring plus the cost of the current right ring
         let upgrade_left = if self.ring_l.is_none() {
-                               match rings_list.first() {
-                                   None => None,
-                                   Some(ring) => Some(ring.clone()),
-                               }
-                           } else {
-                               let srl = self.ring_l.clone().unwrap();
-                               self.find_next_ring(&srl, rings_list)
-                           }
-                           .unwrap();
+            match rings_list.first() {
+                None => None,
+                Some(ring) => Some(ring.clone()),
+            }
+        } else {
+            let srl = self.ring_l.clone().unwrap();
+            self.find_next_ring(&srl, rings_list)
+        }
+        .unwrap();
 
         let upgrade_left_cost = srr.cost + upgrade_left.cost;
 
@@ -496,7 +507,6 @@ impl Iterator for LoadoutGenerator {
         if self.weapon_index < self.weapons.len() - 1 {
             // increment the weapon
             self.weapon_index += 1;
-
         } else {
             self.weapon_index = 0;
             if self.increment_armor() {
@@ -605,7 +615,6 @@ pub struct Character {
     armor: u32,
 }
 
-
 impl Character {
     /// The boss, as given in the puzzle input
     pub fn boss() -> Character {
@@ -651,8 +660,6 @@ pub fn combat(player: Character, boss: Character) -> Character {
         respondent = temp;
     }
 }
-
-
 
 #[cfg(test)]
 mod tests {

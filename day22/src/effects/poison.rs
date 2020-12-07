@@ -1,7 +1,7 @@
 use super::super::Character;
 
-use super::Effects;
 use super::EffectImpl;
+use super::Effects;
 use super::Magic;
 
 pub struct Poison {
@@ -32,11 +32,7 @@ impl Magic for Poison {
 
     fn per_turn(&mut self, _: &mut Character, boss: &mut Character) {
         self.ei.ttl -= 1;
-        boss.hp = if boss.hp >= 3 {
-            boss.hp - 3
-        } else {
-            0
-        };
+        boss.hp = if boss.hp >= 3 { boss.hp - 3 } else { 0 };
     }
 
     fn per_turn_str(&self) -> String {

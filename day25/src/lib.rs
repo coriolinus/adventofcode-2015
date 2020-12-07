@@ -90,7 +90,9 @@ pub struct CodeGen {
 
 impl CodeGen {
     pub fn new(magic: usize) -> CodeGen {
-        CodeGen { values: vec![magic] }
+        CodeGen {
+            values: vec![magic],
+        }
     }
 
     /// Find the next value in sequence.

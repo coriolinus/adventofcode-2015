@@ -28,8 +28,7 @@
 use std::collections::HashMap;
 use std::str::FromStr;
 
-extern crate util;
-use util::parse::{Parser, ParseError};
+use util::parse::{ParseError, Parser};
 
 /// What a Reindeer is currently doing.
 ///
@@ -95,28 +94,28 @@ impl Reindeer {
         }
 
         let parser = Parser::default()
-                         .force_lowercase(false)
-                         .require_at_least(Some(15))
-                         .require_fewer_than(Some(16))
-                         .fixed_tokens({
-                             let mut h = HashMap::new();
-                             // 0 -> Name
-                             h.insert(1, "can".to_string());
-                             h.insert(2, "fly".to_string());
-                             // 3 -> Speed
-                             h.insert(4, "km/s".to_string());
-                             h.insert(5, "for".to_string());
-                             // 6 -> fly_duration
-                             h.insert(7, "seconds,".to_string());
-                             h.insert(8, "but".to_string());
-                             h.insert(9, "then".to_string());
-                             h.insert(10, "must".to_string());
-                             h.insert(11, "rest".to_string());
-                             h.insert(12, "for".to_string());
-                             // 13 -> rest_duration
-                             h.insert(14, "seconds.".to_string());
-                             h
-                         });
+            .force_lowercase(false)
+            .require_at_least(Some(15))
+            .require_fewer_than(Some(16))
+            .fixed_tokens({
+                let mut h = HashMap::new();
+                // 0 -> Name
+                h.insert(1, "can".to_string());
+                h.insert(2, "fly".to_string());
+                // 3 -> Speed
+                h.insert(4, "km/s".to_string());
+                h.insert(5, "for".to_string());
+                // 6 -> fly_duration
+                h.insert(7, "seconds,".to_string());
+                h.insert(8, "but".to_string());
+                h.insert(9, "then".to_string());
+                h.insert(10, "must".to_string());
+                h.insert(11, "rest".to_string());
+                h.insert(12, "for".to_string());
+                // 13 -> rest_duration
+                h.insert(14, "seconds.".to_string());
+                h
+            });
 
         match parser.parse(line) {
             Ok(v) => {
@@ -214,11 +213,7 @@ impl Reindeer {
         let mut npts = Vec::new();
 
         for (r, p) in rs.iter().zip(pts) {
-            let np = if r.distance == f.distance {
-                p + 1
-            } else {
-                p
-            };
+            let np = if r.distance == f.distance { p + 1 } else { p };
             npts.push(np);
         }
 

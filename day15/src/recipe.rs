@@ -1,8 +1,8 @@
 use std::fmt;
 
-use std::hash::{Hash, Hasher};
-use std::collections::{HashMap, HashSet};
 use std::collections::hash_map::Iter;
+use std::collections::{HashMap, HashSet};
+use std::hash::{Hash, Hasher};
 
 use super::ingredient::Ingredient;
 
@@ -126,18 +126,20 @@ impl Recipe {
                 future.extend(recipe.neighbors());
 
                 // check this recipe
-                if recipe.calories() == calories &&
-                   (best_constrained_recipe.is_none() ||
-                    recipe.goodness() > best_constrained_recipe.clone().unwrap().goodness()) {
+                if recipe.calories() == calories
+                    && (best_constrained_recipe.is_none()
+                        || recipe.goodness() > best_constrained_recipe.clone().unwrap().goodness())
+                {
                     best_constrained_recipe = Some(recipe.clone());
                 }
             }
 
             // reset to_examine to a list of items not already seen
-            to_examine = future.iter()
-                               .filter(|r| !visited.contains(r))
-                               .cloned()
-                               .collect::<Vec<_>>();
+            to_examine = future
+                .iter()
+                .filter(|r| !visited.contains(r))
+                .cloned()
+                .collect::<Vec<_>>();
             if to_examine.len() == 0 {
                 break;
             }
@@ -247,13 +249,14 @@ impl<'a> Iterator for Neighbors<'a> {
             let dec_q = dec_q - 1;
             // println!("   |  Using {} as dec_q", dec_q);
 
-
             // finally construct a new Recipe
             let mut recipe = self.recipe.clone();
             recipe.ingredients.insert(incr.clone(), inc_q);
             recipe.ingredients.insert(decr.clone(), dec_q);
-            assert_eq!(recipe.ingredients.values().fold(0, |acc, v| acc + v),
-                       TOTAL_INGREDIENTS);
+            assert_eq!(
+                recipe.ingredients.values().fold(0, |acc, v| acc + v),
+                TOTAL_INGREDIENTS
+            );
 
             // println!("   | Successfully found next neighbor. Returning.");
             Some(recipe)

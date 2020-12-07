@@ -1,10 +1,10 @@
 use super::Character;
 
-pub mod magic_missile;
 pub mod drain;
-pub mod shield;
+pub mod magic_missile;
 pub mod poison;
 pub mod recharge;
+pub mod shield;
 
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum Effects {
@@ -22,7 +22,6 @@ pub struct EffectImpl {
     pub ttl: u8,
     pub mana_cost: u16,
 }
-
 
 pub trait Magic {
     /// Represent this effect by its storable, clonable implementation.

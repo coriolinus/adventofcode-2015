@@ -33,8 +33,7 @@
 //! inc a
 //! ```
 
-extern crate util;
-use util::parse::{Parser, ParseError};
+use util::parse::{ParseError, Parser};
 
 /// The registers are named `a` and `b`, and can hold any non-negative integer
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
@@ -80,7 +79,6 @@ impl Instruction {
                 Err(ParseError::ConsumerError)
             }
         }
-
     }
 
     fn parse_offset(s: &str) -> Result<Offset, ParseError> {
@@ -91,7 +89,6 @@ impl Instruction {
             println!("Couldn't interpret {} as Offset", s);
             Err(ParseError::ConsumerError)
         }
-
     }
 
     fn parse_reg_and_offset(s: Vec<String>) -> Result<(Register, Offset), ParseError> {
@@ -99,30 +96,32 @@ impl Instruction {
             println!("Wrong number of tokens passed to parse_reg_and_offset");
             Err(ParseError::ConsumerError)
         } else {
-            let r = try!(Instruction::parse_reg(&s[1]));
-            let o = try!(Instruction::parse_offset(&s[2]));
+            let r = Instruction::parse_reg(&s[1])?;
+            let o = Instruction::parse_offset(&s[2])?;
             Ok((r, o))
         }
     }
 
     pub fn parse(s: &str) -> Result<Instruction, ParseError> {
-        let result = try!(Parser::default()
-                              .require_at_least(Some(2))
-                              .require_fewer_than(Some(4))
-                              .clear_trailing_punctuation(true)
-                              .parse(s));
+        let result = Parser::default()
+            .require_at_least(Some(2))
+            .require_fewer_than(Some(4))
+            .clear_trailing_punctuation(true)
+            .parse(s)?;
 
         match result.tokens.first().unwrap_or(&String::new()).as_ref() {
-            "hlf" => Ok(Instruction::Hlf(try!(Instruction::parse_reg(&result.tokens[1])))),
-            "tpl" => Ok(Instruction::Tpl(try!(Instruction::parse_reg(&result.tokens[1])))),
-            "inc" => Ok(Instruction::Inc(try!(Instruction::parse_reg(&result.tokens[1])))),
-            "jmp" => Ok(Instruction::Jmp(try!(Instruction::parse_offset(&result.tokens[1])))),
+            "hlf" => Ok(Instruction::Hlf(Instruction::parse_reg(&result.tokens[1])?)),
+            "tpl" => Ok(Instruction::Tpl(Instruction::parse_reg(&result.tokens[1])?)),
+            "inc" => Ok(Instruction::Inc(Instruction::parse_reg(&result.tokens[1])?)),
+            "jmp" => Ok(Instruction::Jmp(Instruction::parse_offset(
+                &result.tokens[1],
+            )?)),
             "jie" => {
-                let (r, o) = try!(Instruction::parse_reg_and_offset(result.tokens));
+                let (r, o) = Instruction::parse_reg_and_offset(result.tokens)?;
                 Ok(Instruction::Jie(r, o))
             }
             "jio" => {
-                let (r, o) = try!(Instruction::parse_reg_and_offset(result.tokens));
+                let (r, o) = Instruction::parse_reg_and_offset(result.tokens)?;
                 Ok(Instruction::Jio(r, o))
             }
             _ => {

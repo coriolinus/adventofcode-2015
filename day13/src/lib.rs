@@ -11,10 +11,8 @@
 
 use std::collections::{HashMap, HashSet};
 
-extern crate permutohedron;
 use permutohedron::heap_recursive;
 
-extern crate util;
 use util::parse::Parser;
 
 pub type Relationships = HashMap<(String, String), i32>;
@@ -22,20 +20,20 @@ pub type Relationships = HashMap<(String, String), i32>;
 pub fn parse_neighbors(lines: &str) -> (HashSet<String>, Relationships) {
     // create parser
     let parser = Parser::default()
-                     .force_lowercase(false)
-                     .require_at_least(Some(11))
-                     .require_fewer_than(Some(12))
-                     .fixed_tokens({
-                         let mut h = HashMap::new();
-                         h.insert(1, "would".to_string());
-                         h.insert(4, "happiness".to_string());
-                         h.insert(5, "units".to_string());
-                         h.insert(6, "by".to_string());
-                         h.insert(7, "sitting".to_string());
-                         h.insert(8, "next".to_string());
-                         h.insert(9, "to".to_string());
-                         h
-                     });
+        .force_lowercase(false)
+        .require_at_least(Some(11))
+        .require_fewer_than(Some(12))
+        .fixed_tokens({
+            let mut h = HashMap::new();
+            h.insert(1, "would".to_string());
+            h.insert(4, "happiness".to_string());
+            h.insert(5, "units".to_string());
+            h.insert(6, "by".to_string());
+            h.insert(7, "sitting".to_string());
+            h.insert(8, "next".to_string());
+            h.insert(9, "to".to_string());
+            h
+        });
 
     let mut r = Relationships::default();
     let mut p = HashSet::default();
@@ -59,7 +57,8 @@ pub fn parse_neighbors(lines: &str) -> (HashSet<String>, Relationships) {
 
             if gain_lose == &String::from("lose") {
                 n *= -1;
-            } else if gain_lose == &String::from("gain") {} else {
+            } else if gain_lose == &String::from("gain") {
+            } else {
                 continue;
             }
 
@@ -71,27 +70,20 @@ pub fn parse_neighbors(lines: &str) -> (HashSet<String>, Relationships) {
     (p, r)
 }
 
-pub fn evaluate_ordering(people: &Vec<String>,
-                         rels: &Relationships)
-                         -> (i32, HashMap<String, i32>) {
+pub fn evaluate_ordering(
+    people: &Vec<String>,
+    rels: &Relationships,
+) -> (i32, HashMap<String, i32>) {
     let mut total_happiness = 0;
     let mut personal_happiness = HashMap::new();
 
     // compute personal happiness for each member of the circle
     for (i, person) in people.iter().enumerate() {
-        let ref left = people[if i > 0 {
-            i - 1
-        } else {
-            people.len() - 1
-        }];
-        let ref right = people[if i < people.len() - 1 {
-            i + 1
-        } else {
-            0
-        }];
+        let ref left = people[if i > 0 { i - 1 } else { people.len() - 1 }];
+        let ref right = people[if i < people.len() - 1 { i + 1 } else { 0 }];
 
-        let ph = rels.get(&(person.to_owned(), left.to_owned())).unwrap() +
-                 rels.get(&(person.to_owned(), right.to_owned())).unwrap();
+        let ph = rels.get(&(person.to_owned(), left.to_owned())).unwrap()
+            + rels.get(&(person.to_owned(), right.to_owned())).unwrap();
 
         total_happiness += ph;
         personal_happiness.insert(person.clone(), ph);
