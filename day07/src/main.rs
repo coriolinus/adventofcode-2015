@@ -1,32 +1,52 @@
-use util::get_multiline_input;
+use aoc2015::{config::Config, website::get_input};
+use day07::{part1, part2};
 
-use day07::parse::Parseable;
-use day07::wire::Wire;
-use day07::{evaluate, parse_wires};
+use color_eyre::eyre::Result;
+use std::path::PathBuf;
+use structopt::StructOpt;
 
-fn main() {
-    let input = get_multiline_input("Your EOF-terminated lines go here:\n").unwrap();
-    if let Some(wires) = parse_wires(&input) {
-        let sym_table = evaluate(&wires);
-        if let Some(val) = sym_table.get("a") {
-            println!("Value of wire 'a': {}", val);
-            let mut new_wires = wires.clone();
-            // eliminate whatever 'b' was before
-            new_wires = new_wires
-                .iter()
-                .filter(|&x| x.get_name() != "b")
-                .map(|x| x.to_owned())
-                .collect();
+const DAY: u8 = 7;
 
-            // insert a new 'b' wire containing this computed value
-            let wire_string = format!("{} -> b", val);
-            new_wires.push(Wire::parse(&wire_string).unwrap());
-            let st = evaluate(&new_wires);
-            println!("New value of wire 'a': {}", st.get("a").unwrap());
-        } else {
-            println!("Symbol 'a' did not appear in the final table!");
+#[derive(StructOpt, Debug)]
+struct RunArgs {
+    /// input file
+    #[structopt(long, parse(from_os_str))]
+    input: Option<PathBuf>,
+
+    /// skip part 1
+    #[structopt(long = "no-part1")]
+    no_part1: bool,
+
+    /// run part 2
+    #[structopt(long)]
+    part2: bool,
+}
+
+impl RunArgs {
+    fn input(&self) -> Result<PathBuf> {
+        match self.input {
+            None => {
+                let config = Config::load()?;
+                // this does nothing if the input file already exists, but
+                // simplifies the workflow after cloning the repo on a new computer
+                get_input(&config, DAY)?;
+                Ok(config.input_for(DAY))
+            }
+            Some(ref path) => Ok(path.clone()),
         }
-    } else {
-        println!("Could not parse that input");
     }
+}
+
+fn main() -> Result<()> {
+    color_eyre::install()?;
+    let args = RunArgs::from_args();
+    let input_path = args.input()?;
+
+    if !args.no_part1 {
+        part1(&input_path)?;
+    }
+    if args.part2 {
+        part2(&input_path)?;
+    }
+    Ok(())
 }

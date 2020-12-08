@@ -24,137 +24,134 @@
 //!   reason, you'd like to emulate the circuit instead, almost all programming languages (for
 //!   example, C, JavaScript, or Python) provide operators for these gates.
 
-mod evaluable;
-pub mod evaluator;
-pub mod instruction;
-mod name;
-pub mod parse;
-pub mod wire;
+use aoc2015::parse;
+use std::{path::Path, str::FromStr};
+use thiserror::Error;
+use lalrpop_util::lalrpop_mod;
+use std::collections::{HashMap, HashSet};
 
-use evaluator::Evaluator;
-use parse::Parseable;
-use wire::Wire;
+lalrpop_mod!(parser);
 
-use std::collections::HashMap;
+type Signals = HashMap<String, u16>;
 
-/// `None` if not all lines could be parsed, or `Some(Vec<Wire>)`
-///
-/// We assume that if a line fails to read, the whole program is likely to fail, so we don't
-/// bother trying.
-pub fn parse_wires(lines: &str) -> Option<Vec<Wire>> {
-    let mut ret: Vec<Wire> = Vec::new();
-    for line in lines.split('\n') {
-        if line.is_empty() {
-            continue; // blank lines are acceptable in programs now, I guess
-        }
-        let wire = Wire::parse(line);
-        if wire.is_none() {
-            return None;
-        }
-        ret.push(wire.unwrap());
-    }
-    Some(ret)
+#[derive(PartialEq, Eq, Clone, Debug, Hash)]
+pub enum Signal {
+    Literal(u16),
+    Reference(String),
 }
 
-pub fn evaluate(wires: &Vec<Wire>) -> HashMap<String, u16> {
-    let ev = Evaluator::new(wires);
-    let mut ret: HashMap<String, u16> = HashMap::new();
-    for (name, val) in ev.evaluate() {
-        let n = name.get().to_string();
-        ret.insert(n, val);
+impl Signal {
+    fn value(&self, signals: &Signals) -> Option<u16> {
+        match self {
+            Self::Literal(l) => Some(*l),
+            Self::Reference(r) => signals.get(r).copied(),
+        }
     }
-    ret
 }
 
-#[cfg(test)]
-mod test {
-    use std::collections::HashMap;
+#[derive(PartialEq, Eq, Clone, Debug, Hash)]
+pub enum Instruction {
+    Copy(Signal),
+    And(Signal, Signal),
+    Or(Signal, Signal),
+    LShift(Signal, Signal),
+    RShift(Signal, Signal),
+    Not(Signal),
+}
 
-    use super::evaluate;
-    use super::parse::Parseable;
-    use super::wire::Wire;
+impl Instruction {
+    fn value(&self, signals: &Signals) -> Option<u16> {
+        match self {
+            Self::Copy(x) => x.value(signals),
+            Self::And(x, y) => Some(x.value(signals)? & y.value(signals)?),
+            Self::Or(x, y) => Some(x.value(signals)? | y.value(signals)?),
+            Self::LShift(x, y) => Some(x.value(signals)? << y.value(signals)?),
+            Self::RShift(x, y) => Some(x.value(signals)? >> y.value(signals)?),
+            Self::Not(x) => Some(!x.value(signals)?),
+        }
+    }
+}
 
-    /// For example, here is a simple circuit:
+#[derive(PartialEq, Eq, Clone, Debug, Hash)]
+pub struct Wire {
+    pub(crate) instruction: Instruction,
+    pub(crate) destination: String,
+}
+
+impl Wire {
+    /// Try to apply this wire's value to the signal table.
     ///
-    /// ```notrust
-    /// 123 -> x
-    /// 456 -> y
-    /// x AND y -> d
-    /// x OR y -> e
-    /// x LSHIFT 2 -> f
-    /// y RSHIFT 2 -> g
-    /// NOT x -> h
-    /// NOT y -> i
-    /// ```
-    fn get_example() -> Vec<Wire> {
-        let mut v = Vec::new();
+    /// Return `true` when the application was successful.
+    fn try_apply(&self, signals: &mut Signals) -> bool {
+        if signals.contains_key(&self.destination) {
+            return true;
+        }
+        match self.instruction.value(signals) {
+            Some(value) => {
+                signals.insert(self.destination.clone(), value);
+                true
+            }
+            None => false,
+        }
+    }
+}
 
-        v.push(Wire::parse("123 -> x").unwrap());
-        v.push(Wire::parse("456 -> y").unwrap());
-        v.push(Wire::parse("x AND y -> d").unwrap());
-        v.push(Wire::parse("x OR y -> e").unwrap());
-        v.push(Wire::parse("x LSHIFT 2 -> f").unwrap());
-        v.push(Wire::parse("y RSHIFT 2 -> g").unwrap());
-        v.push(Wire::parse("NOT x -> h").unwrap());
-        v.push(Wire::parse("NOT y -> i").unwrap());
 
-        v
+impl FromStr for Wire {
+    type Err = lalrpop_util::ParseError<usize, String, &'static str>;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let parser = parser::WireParser::new();
+        parser
+            .parse(s)
+            .map_err(|err| err.map_token(|t| t.to_string()))
+    }
+}
+
+pub fn compute_all_signals(mut wires: HashSet<Wire>, mut signals: Signals) -> Signals {
+    let mut pending_wires = HashSet::with_capacity(wires.len());
+    let mut prev_wires_len = 0;
+
+    while wires.len() != prev_wires_len && !wires.is_empty() {
+        prev_wires_len = wires.len();
+
+        for wire in wires.drain() {
+            if !wire.try_apply(&mut signals) {
+                pending_wires.insert(wire);
+            }
+        }
+
+        std::mem::swap(&mut wires, &mut pending_wires);
     }
 
-    /// After the example is run, these are the signals on the wires:
-    ///
-    /// ```notrust
-    /// d: 72
-    /// e: 507
-    /// f: 492
-    /// g: 114
-    /// h: 65412
-    /// i: 65079
-    /// x: 123
-    /// y: 456
-    /// ```
-    fn get_example_expected() -> HashMap<String, u16> {
-        let mut h = HashMap::new();
+    assert_eq!(wires.len(), 0, "failed to compute a signal for every wire");
+    signals
+}
 
-        h.insert("d".to_string(), 72);
-        h.insert("e".to_string(), 507);
-        h.insert("f".to_string(), 492);
-        h.insert("g".to_string(), 114);
-        h.insert("h".to_string(), 65412);
-        h.insert("i".to_string(), 65079);
-        h.insert("x".to_string(), 123);
-        h.insert("y".to_string(), 456);
+pub fn part1(input: &Path) -> Result<(), Error> {
+    let wires: HashSet<Wire> = parse(input)?.collect();
+    let signals = Signals::with_capacity(wires.len());
+    let signals = compute_all_signals(wires, signals);
+    println!("value of 'a' wire (pt. 1): {:?}", signals.get("a"));
 
-        h
-    }
+    Ok(())
+}
 
-    #[test]
-    fn test_example() {
-        assert_eq!(evaluate(&get_example()), get_example_expected());
-    }
+pub fn part2(input: &Path) -> Result<(), Error> {
+    let wires: HashSet<Wire> = parse(input)?.collect();
+    let signals = Signals::with_capacity(wires.len());
+    let signals = compute_all_signals(wires.clone(), signals);
+    let a_value = signals["a"];
+    let mut signals = Signals::with_capacity(wires.len());
+    signals.insert("b".to_string(), a_value);
+    let signals = compute_all_signals(wires, signals);
+    println!("value of 'a' wire (pt. 2): {:?}", signals.get("a"));
 
-    #[test]
-    fn test_reversed_example() {
-        let mut v = get_example();
-        v.reverse();
-        assert_eq!(evaluate(&v), get_example_expected());
-    }
+    Ok(())
+}
 
-    // Possibly I could put that after a feature gate, but it's unnecessary right now.
-    // #[test]
-    // fn test_randomized_example() {
-    //     let mut v = get_example();
-    //     let s = v.as_mut_slice();
-    //     thread_rng().shuffle(s);
-    // }
-
-    #[test]
-    fn test_parse_instruction_with_long_evaluables() {
-        Wire::parse("sAnTa AND SayS -> HoHoHo").unwrap();
-    }
-
-    #[test]
-    fn test_parse_instruction_with_whitespace() {
-        Wire::parse("   x AND y -> z\r").unwrap();
-    }
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
 }

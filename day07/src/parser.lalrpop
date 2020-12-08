@@ -1,0 +1,25 @@
+use super::{Signal, Instruction, Wire};
+use std::str::FromStr;
+
+grammar;
+
+Num: u16 = <s:r"[0-9]+"> => u16::from_str(s).unwrap();
+
+Signal: Signal = {
+    <n:Num> => Signal::Literal(n),
+    <s:r"[a-zA-Z]+"> => Signal::Reference(s.to_string()),
+};
+
+Instruction: Instruction = {
+    <sig:Signal> => Instruction::Copy(sig),
+    <x:Signal> "AND" <y:Signal> => Instruction::And(x, y),
+    <x:Signal> "OR" <y:Signal> => Instruction::Or(x, y),
+    <x:Signal> "LSHIFT" <y:Signal> => Instruction::LShift(x, y),
+    <x:Signal> "RSHIFT" <y:Signal> => Instruction::RShift(x, y),
+    "NOT" <x:Signal> => Instruction::Not(x),
+};
+
+pub Wire: Wire = <instruction:Instruction> "->" <destination:r"[a-zA-Z]+"> => Wire {
+    instruction,
+    destination: destination.to_string(),
+};

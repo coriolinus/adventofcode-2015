@@ -5,5 +5,12 @@ authors = ["coriolinus <coriolinus@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-util = { path = "../util"}
-lazy_static = "^0.1.15"
+aoc2015 = { path = ".." }
+color-eyre = "0.5.10"
+lalrpop-util = "0.19.1"
+regex = "1.4.2"
+structopt = "0.3.21"
+thiserror = "1.0.22"
+
+[build-dependencies]
+lalrpop = {version = "0.19.1", features = [ "lexer" ] }
