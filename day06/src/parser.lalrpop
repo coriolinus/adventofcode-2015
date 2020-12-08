@@ -1,0 +1,18 @@
+use aoc2015::geometry::Point;
+use super::{Instruction, Command};
+use std::str::FromStr;
+
+grammar;
+
+Num: i32 = <s:r"-?[0-9]+"> => i32::from_str(s).unwrap();
+
+pub Point: Point = <x:Num> "," <y:Num> => Point::new(x, y);
+
+pub Instruction: Instruction = {
+    "turn on" => Instruction::TurnOn,
+    "turn off" => Instruction::TurnOff,
+    "toggle" => Instruction::Toggle,
+};
+
+pub Command: Command = <instruction:Instruction> <from:Point> "through" <to:Point> =>
+    Command { instruction, from, to };

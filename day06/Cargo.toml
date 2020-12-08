@@ -5,5 +5,14 @@ authors = ["coriolinus <coriolinus@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-util = { path = "../util"}
-day03 = { path = "../day03"}
+aoc2015 = { path = ".." }
+color-eyre = "0.5.10"
+lalrpop-util = "0.19.1"
+parse-display = "0.4.0"
+regex = "1.4.2"
+rust-crypto = "0.2.36"
+structopt = "0.3.21"
+thiserror = "1.0.22"
+
+[build-dependencies]
+lalrpop = { version = "0.19.1", features = [ "lexer" ] }

@@ -24,233 +24,131 @@
 //!
 //! After following the instructions, how many lights are lit?
 
-use day03::Point;
+use aoc2015::{
+    geometry::{Map, Point},
+    parse,
+};
 
-use std::collections::HashMap;
+use lalrpop_util::lalrpop_mod;
+use std::{path::Path, str::FromStr};
+use thiserror::Error;
 
-pub trait Lightable {
-    type L: Default + Copy;
+lalrpop_mod!(pub parser);
 
-    fn new() -> Self;
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Instruction {
+    TurnOn,
+    TurnOff,
+    Toggle,
+}
 
-    fn count(&self) -> usize;
-    fn turn_on(&mut self, point: Point);
-    fn turn_off(&mut self, point: Point);
-    fn toggle(&mut self, point: Point);
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Command {
+    pub(crate) instruction: Instruction,
+    pub(crate) from: Point,
+    pub(crate) to: Point,
+}
 
-    fn get(&self, point: Point) -> Self::L;
-    fn set(&mut self, point: Point, v: &Self::L);
+impl FromStr for Command {
+    type Err = lalrpop_util::ParseError<usize, String, &'static str>;
 
-    fn parse_lines(&mut self, lines: &str) {
-        for line in lines.split('\n') {
-            self.parse_line(line);
-        }
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let parser = parser::CommandParser::new();
+        parser
+            .parse(s)
+            .map_err(|err| err.map_token(|t| t.to_string()))
     }
+}
 
-    fn parse_line(&mut self, instr: &str) -> bool {
-        let instr = instr.trim().to_lowercase();
-        if instr.is_empty() {
-            return false;
-        }
+impl Command {
+    fn apply<Light>(&self, map: &mut Map<Light>)
+    where
+        Instruction: ManipulateLight<Light>,
+    {
+        let min_x = self.from.x.min(self.to.x);
+        let max_x = self.from.x.max(self.to.x);
+        let min_y = self.from.y.min(self.to.y);
+        let max_y = self.from.y.max(self.to.y);
 
-        let mut tokenizer = instr.split_whitespace();
-
-        let first = tokenizer.next();
-        if first.is_none() {
-            return false;
-        }
-
-        let inst = if first.unwrap() == "turn" {
-            tokenizer.next()
-        } else {
-            first
-        };
-        if inst.is_none() {
-            return false;
-        }
-        let inst = inst.unwrap();
-
-        let from = parse_point(tokenizer.next());
-        if from.is_none() {
-            return false;
-        }
-        let from = from.unwrap();
-
-        let through = tokenizer.next();
-        if through.is_none() || through.unwrap() != "through" {
-            return false;
-        }
-        drop(through);
-
-        let to = parse_point(tokenizer.next());
-        if to.is_none() {
-            return false;
-        }
-        let to = to.unwrap();
-
-        for pt in Through::new(from, to) {
-            match inst {
-                "on" => self.turn_on(pt),
-                "off" => self.turn_off(pt),
-                "toggle" => self.toggle(pt),
-                _ => return false,
+        for y in min_y..=max_y {
+            for x in min_x..=max_x {
+                self.instruction.manipulate(&mut map[Point::new(x, y)])
             }
         }
-
-        true
     }
 }
 
-pub struct Through {
-    from: Point,
-    to: Point,
-    cur_x: i32,
-    cur_y: i32,
-    finished: bool,
+trait ManipulateLight<Light> {
+    fn manipulate(&self, light: &mut Light);
 }
 
-impl Through {
-    pub fn new(from: Point, to: Point) -> Through {
-        Through {
-            from: from,
-            to: to,
-            cur_x: from.x,
-            cur_y: from.y,
-            finished: false,
+impl ManipulateLight<bool> for Instruction {
+    fn manipulate(&self, light: &mut bool) {
+        match self {
+            Self::TurnOn => *light = true,
+            Self::TurnOff => *light = false,
+            Self::Toggle => *light = !*light,
         }
     }
 }
 
-impl Iterator for Through {
-    type Item = Point;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.finished {
-            return None;
+impl ManipulateLight<u8> for Instruction {
+    fn manipulate(&self, light: &mut u8) {
+        match self {
+            Self::TurnOn => *light = light.checked_add(1).expect("overflow"),
+            Self::TurnOff => *light = light.saturating_sub(1),
+            Self::Toggle => *light = light.checked_add(2).expect("overflow"),
         }
-
-        let ret = Point::new(self.cur_x, self.cur_y);
-        self.cur_x += 1;
-        if self.cur_x > self.to.x {
-            self.cur_x = self.from.x;
-            self.cur_y += 1;
-            if self.cur_y > self.to.y {
-                self.finished = true;
-            }
-        }
-        Some(ret)
     }
 }
 
-pub struct Lights<T> {
-    lights: HashMap<Point, T>,
+pub fn part1(input: &Path) -> Result<(), Error> {
+    let mut map: Map<bool> = Map::new(1000, 1000);
+    for command in parse::<Command>(input)? {
+        command.apply(&mut map);
+    }
+    let lit = map.iter().filter(|light| **light).count();
+    println!("{} lit", lit);
+    Ok(())
 }
 
-impl Lightable for Lights<u64> {
-    type L = u64;
-
-    fn new() -> Lights<u64> {
-        Lights {
-            lights: HashMap::new(),
-        }
+pub fn part2(input: &Path) -> Result<(), Error> {
+    let mut map: Map<u8> = Map::new(1000, 1000);
+    for command in parse::<Command>(input)? {
+        command.apply(&mut map);
     }
-
-    fn count(&self) -> usize {
-        let s: u64 = self.lights.values().fold(0, |acc, val| acc + val);
-        s as usize
-    }
-
-    fn turn_on(&mut self, point: Point) {
-        let pv = self.get(point);
-        self.set(point, &(1 + pv));
-    }
-
-    fn turn_off(&mut self, point: Point) {
-        let mut pv = self.get(point);
-        pv = if pv > 0 { pv - 1 } else { 0 };
-        self.set(point, &pv);
-    }
-
-    fn toggle(&mut self, point: Point) {
-        let pv = self.get(point);
-        self.set(point, &(2 + pv));
-    }
-
-    fn get(&self, point: Point) -> u64 {
-        if let Some(val) = self.lights.get(&point) {
-            *val
-        } else {
-            0
-        }
-    }
-
-    fn set(&mut self, point: Point, v: &u64) {
-        self.lights.insert(point, *v);
-    }
+    let brightness = map.iter().map(|light| *light as u64).sum::<u64>();
+    println!("brightness: {}", brightness);
+    Ok(())
 }
 
-impl Lightable for Lights<bool> {
-    type L = bool;
-
-    fn new() -> Lights<bool> {
-        let hm = HashMap::new();
-
-        Lights { lights: hm }
-    }
-
-    fn count(&self) -> usize {
-        self.lights.values().filter(|&x| *x).count()
-    }
-
-    fn turn_on(&mut self, point: Point) {
-        self.lights.insert(point, true);
-    }
-
-    fn turn_off(&mut self, point: Point) {
-        self.lights.insert(point, false);
-    }
-
-    fn toggle(&mut self, point: Point) {
-        let target = !self.get(point);
-        self.lights.insert(point, target);
-    }
-
-    fn get(&self, point: Point) -> bool {
-        if let Some(val) = self.lights.get(&point) {
-            *val
-        } else {
-            false
-        }
-    }
-
-    fn set(&mut self, point: Point, v: &bool) {
-        self.lights.insert(point, *v);
-    }
-}
-
-fn parse_point(input: Option<&str>) -> Option<Point> {
-    if input.is_none() {
-        return None;
-    }
-    let input = input.unwrap();
-    let mut it = input.split(",");
-    let x = it.next();
-    let y = it.next();
-    if x.is_none() || y.is_none() {
-        return None;
-    }
-    if let (Ok(x), Ok(y)) = (
-        i32::from_str_radix(x.unwrap(), 10),
-        i32::from_str_radix(y.unwrap(), 10),
-    ) {
-        return Some(Point::new(x, y));
-    }
-    None
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    macro_rules! apply {
+        ($s:expr, $map:expr) => {
+            let command: Command = match $s.parse() {
+                Ok(command) => command,
+                Err(err) => {
+                    println!("{}", err);
+                    let mut err: &dyn std::error::Error = &err;
+                    while let Some(source) = err.source() {
+                        err = source;
+                        println!("{}", err);
+                    }
+                    panic!()
+                }
+            };
+            command.apply(&mut $map);
+        };
+    }
 
     /// For example:
     ///
@@ -260,17 +158,27 @@ mod tests {
     /// - `turn off 499,499 through 500,500` would turn off (or leave off) the middle four lights.
     #[test]
     fn test_examples() {
-        let mut lts: Lights<bool> = Lights::new();
-        assert_eq!(0, lts.count());
+        macro_rules! expect {
+            ($qty:expr, $map:expr) => {
+                assert_eq!($map.iter().filter(|light| **light).count(), $qty);
+            };
+        }
 
-        lts.parse_line("turn on 0,0 through 999,999");
-        assert_eq!(1000000, lts.count());
+        let mut lts: Map<bool> = Map::new(1000, 1000);
 
-        lts.parse_line("toggle 0,0 through 999,0");
-        assert_eq!(999000, lts.count());
+        expect!(0, lts);
 
-        lts.parse_line("turn off 499,499 through 500,500");
-        assert_eq!(998996, lts.count());
+        apply!("toggle 0,0 through 999,0", lts);
+        expect!(1000, lts);
+
+        apply!("turn on 0,0 through 999,999", lts);
+        expect!(1_000_000, lts);
+
+        apply!("toggle 0,0 through 999,0", lts);
+        expect!(999000, lts);
+
+        apply!("turn off 499,499 through 500,500", lts);
+        expect!(998996, lts);
     }
 
     /// For example:
@@ -279,13 +187,20 @@ mod tests {
     /// - `toggle 0,0 through 999,999` would increase the total brightness by 2000000.
     #[test]
     fn test_part_2() {
-        let mut lts: Lights<u64> = Lights::new();
-        assert_eq!(0, lts.count());
+        macro_rules! expect {
+            ($qty:expr, $map:expr) => {
+                assert_eq!($map.iter().map(|light| *light as u64).sum::<u64>(), $qty);
+            };
+        }
 
-        lts.parse_line("turn on 0,0 through 0,0");
-        assert_eq!(1, lts.count());
+        let mut lts: Map<u8> = Map::new(1000, 1000);
 
-        lts.parse_line("toggle 0,0 through 999,999");
-        assert_eq!(2000001, lts.count());
+        expect!(0, lts);
+
+        apply!("turn on 0,0 through 0,0", lts);
+        expect!(1, lts);
+
+        apply!("toggle 0,0 through 999,999", lts);
+        expect!(2000001, lts);
     }
 }
