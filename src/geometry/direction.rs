@@ -1,8 +1,12 @@
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, parse_display::Display, parse_display::FromStr)]
 pub enum Direction {
+    #[display(">")]
     Right,
+    #[display("<")]
     Left,
+    #[display("^")]
     Up,
+    #[display("v")]
     Down,
 }
 

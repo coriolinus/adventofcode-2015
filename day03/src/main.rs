@@ -1,33 +1,52 @@
-use day03::follow_n_santas;
-use day03::follow_santa;
-use day03::unique_houses;
+use aoc2015::{config::Config, website::get_input};
+use day03::{part1, part2};
 
-use std::io;
-use std::io::prelude::*;
+use color_eyre::eyre::Result;
+use std::path::PathBuf;
+use structopt::StructOpt;
 
-fn main() {
-    if let Ok(input) = get_input("Enter Santa's path now: ", false) {
-        let cc = follow_santa(&input);
-        println!("Houses visited (1 santa): {}", cc.trail.len());
-        let uh = unique_houses(&follow_n_santas(&input, 2));
-        println!("Houses visited (2 santas): {}", uh);
-    } else {
-        println!("Failed to parse; try again later")
+const DAY: u8 = 3;
+
+#[derive(StructOpt, Debug)]
+struct RunArgs {
+    /// input file
+    #[structopt(long, parse(from_os_str))]
+    input: Option<PathBuf>,
+
+    /// skip part 1
+    #[structopt(long = "no-part1")]
+    no_part1: bool,
+
+    /// run part 2
+    #[structopt(long)]
+    part2: bool,
+}
+
+impl RunArgs {
+    fn input(&self) -> Result<PathBuf> {
+        match self.input {
+            None => {
+                let config = Config::load()?;
+                // this does nothing if the input file already exists, but
+                // simplifies the workflow after cloning the repo on a new computer
+                get_input(&config, DAY)?;
+                Ok(config.input_for(DAY))
+            }
+            Some(ref path) => Ok(path.clone()),
+        }
     }
 }
 
-fn get_input(prompt: &str, wait_for_eof: bool) -> io::Result<String> {
-    print!("{}", prompt);
+fn main() -> Result<()> {
+    color_eyre::install()?;
+    let args = RunArgs::from_args();
+    let input_path = args.input()?;
 
-    // flush stdout explicitly so it shows up at the end of the line
-    io::stdout().flush()?;
-
-    let mut input = String::new();
-    if wait_for_eof {
-        io::stdin().read_to_string(&mut input)?;
-    } else {
-        io::stdin().read_line(&mut input)?;
+    if !args.no_part1 {
+        part1(&input_path)?;
     }
-
-    Ok(input) // wrap the output string in Ok to match our signature
+    if args.part2 {
+        part2(&input_path)?;
+    }
+    Ok(())
 }
