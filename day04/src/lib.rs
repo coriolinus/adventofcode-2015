@@ -89,11 +89,7 @@ mod tests {
     #[test]
     #[cfg_attr(debug_assertions, ignore)]
     fn test_with_six() {
-        test_known(
-            "bgvyzdsv",
-            1038736,
-            6,
-        );
+        test_known("bgvyzdsv", 1038736, 6);
     }
 
     // Benchmarks disabled due to not compiling in the stable compiler (!)

@@ -21,43 +21,64 @@
 //! - `haegwjzuvuyypxyu` is naughty because it contains the string `xy`.
 //! - `dvszwmarrgswjxmb` is naughty because it contains only one vowel.
 
+use aoc2015::parse;
+
+use lazy_static::lazy_static;
+use maplit::hashset;
 use std::collections::HashSet;
+use std::path::Path;
+use thiserror::Error;
 
-pub fn is_nice(input: &str) -> bool {
-    let input = input.trim().to_string().to_lowercase();
-    if input.len() == 0 {
-        return false;
+pub struct CharVec(Vec<char>);
+
+impl std::str::FromStr for CharVec {
+    type Err = std::convert::Infallible;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(CharVec(s.chars().collect()))
     }
+}
 
-    let mut chars = input.chars();
-    let first_char = chars.next(); // advance to the 2nd char
+lazy_static! {
+    static ref VOWELS: HashSet<char> = hashset! {'a', 'e', 'i', 'o', 'u'};
+}
 
-    let char_pairs = input.chars().zip(chars);
+fn has_enough_vowels(input: &[char]) -> bool {
+    input.iter().filter(|c| VOWELS.contains(c)).count() >= 3
+}
 
-    let vowels_set = get_vowels();
-    let naughty_set = get_naughty_pairs();
+fn contains_double_letter(input: &[char]) -> bool {
+    input.windows(2).any(|window| window[0] == window[1])
+}
 
-    let mut vowels = 0;
-    if vowels_set.contains(&first_char.unwrap()) {
-        vowels += 1;
-    }
+const NAUGHTY: &[&[char]] = &[&['a', 'b'], &['c', 'd'], &['p', 'q'], &['x', 'y']];
 
-    let mut has_double = false;
-    let mut has_naughty = false;
+fn contains_naughty_sequence(input: &[char]) -> bool {
+    input.windows(2).any(|window| NAUGHTY.contains(&window))
+}
 
-    for (first, second) in char_pairs {
-        if vowels_set.contains(&second) {
-            vowels += 1;
-        }
-        if first == second {
-            has_double = true;
-        }
-        if !has_naughty && naughty_set.contains(&(first, second)) {
-            has_naughty = true;
-        }
-    }
+pub fn is_nice(input: &CharVec) -> bool {
+    has_enough_vowels(&input.0)
+        && contains_double_letter(&input.0)
+        && !contains_naughty_sequence(&input.0)
+}
 
-    has_double && !has_naughty && vowels >= 3
+pub fn part1(input: &Path) -> Result<(), Error> {
+    let nice = parse::<CharVec>(input)?.filter(is_nice).count();
+    println!("part 1 nice strings count: {}", nice);
+    Ok(())
+}
+
+fn contains_eye_pattern(chars: &[char]) -> bool {
+    chars.windows(3).any(|window| window[0] == window[2])
+}
+
+fn contains_repeated_double(chars: &[char]) -> bool {
+    chars.windows(2).enumerate().any(|(idx, outer_window)| {
+        chars[idx + 2..]
+            .windows(2)
+            .any(|inner_window| inner_window == outer_window)
+    })
 }
 
 /// Realizing the error of his ways, Santa has switched to a better model of determining whether a
@@ -70,81 +91,28 @@ pub fn is_nice(input: &str) -> bool {
 ///   overlaps).
 /// - It contains at least one letter which repeats with exactly one letter between them, like
 ///   `xyx`, `abcdefeghi` (`efe`), or even `aaa`.
-fn is_nice2(input: &str) -> bool {
-    let input = input.trim().to_string().to_lowercase();
-    if input.len() == 0 {
-        return false;
-    }
-
-    // simple to iterate through the string and find a pair which repeats with a gap
-    let char_skip_char = input.chars().zip(input.chars().skip(2));
-    let mut rep_skip = false;
-    for (first, second) in char_skip_char {
-        if first == second {
-            rep_skip = true;
-            break;
-        }
-    }
-
-    // break early to skip the expensive stuff, if we contain
-    if !rep_skip {
-        return rep_skip;
-    }
-
-    // now, the hard part: non-overlapping repeated pairs
-    let mut nono_doubles = false;
-    let in_len = input.len();
-    let e_char_pairs = input.chars().zip(input.chars().skip(1)).enumerate();
-    'outer: for (i, (first, second)) in e_char_pairs {
-        if (i + 3) < in_len {
-            let next_char_pairs = input.chars().zip(input.chars().skip(1)).skip(i + 2);
-            for (third, fourth) in next_char_pairs {
-                if first == third && second == fourth {
-                    nono_doubles = true;
-                    break 'outer;
-                }
-            }
-        }
-    }
-
-    rep_skip && nono_doubles
+fn is_nice2(input: &CharVec) -> bool {
+    contains_eye_pattern(&input.0) && contains_repeated_double(&input.0)
 }
 
-fn get_vowels() -> HashSet<char> {
-    let mut set = HashSet::new();
-    set.insert('a');
-    set.insert('e');
-    set.insert('i');
-    set.insert('o');
-    set.insert('u');
-    set
+pub fn part2(input: &Path) -> Result<(), Error> {
+    let nice = parse::<CharVec>(input)?.filter(is_nice2).count();
+    println!("part 2 nice strings count: {}", nice);
+    Ok(())
 }
 
-fn get_naughty_pairs() -> HashSet<(char, char)> {
-    let mut set = HashSet::new();
-    set.insert(('a', 'b'));
-    set.insert(('c', 'd'));
-    set.insert(('p', 'q'));
-    set.insert(('x', 'y'));
-    set
-}
-
-pub fn count_nice(lines: &str) -> u32 {
-    lines
-        .split("\n")
-        .fold(0, |acc, line| acc + if is_nice(line) { 1 } else { 0 })
-}
-
-pub fn count_nice2(lines: &str) -> u32 {
-    lines
-        .split("\n")
-        .fold(0, |acc, line| acc + if is_nice2(line) { 1 } else { 0 })
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
 }
 
 #[cfg(test)]
 mod tests {
-    use super::is_nice;
-    use super::is_nice2;
+    use crate::CharVec;
+
+    use super::{is_nice, is_nice2};
+    use rstest::rstest;
 
     /// - `ugknbfddgicrmopn` is nice because it has at least three vowels (`u...i...o...`), a double
     ///   letter (`...dd...`), and none of the disallowed substrings.
@@ -153,13 +121,18 @@ mod tests {
     /// - `jchzalrnumimnmhp` is naughty because it has no double letter.
     /// - `haegwjzuvuyypxyu` is naughty because it contains the string `xy`.
     /// - `dvszwmarrgswjxmb` is naughty because it contains only one vowel.
-    #[test]
-    fn test_examples() {
-        assert!(is_nice("ugknbfddgicrmopn"));
-        assert!(is_nice("aaa"));
-        assert!(!is_nice("jchzalrnumimnmhp"));
-        assert!(!is_nice("haegwjzuvuyypxyu"));
-        assert!(!is_nice("dvszwmarrgswjxmb"));
+    #[rstest(
+        input,
+        expect,
+        case("ugknbfddgicrmopn", true),
+        case("aaa", true),
+        case("jchzalrnumimnmhp", false),
+        case("haegwjzuvuyypxyu", false),
+        case("dvszwmarrgswjxmb", false)
+    )]
+    fn test_examples(input: &str, expect: bool) {
+        let charvec: CharVec = input.parse().unwrap();
+        assert_eq!(is_nice(&charvec), expect);
     }
 
     /// - `qjhvhtzxzqqjkmpb` is nice because is has a pair that appears twice (`qj`) and a letter
@@ -170,11 +143,16 @@ mod tests {
     ///   letter between them.
     /// - `ieodomkazucvgmuy` is naughty because it has a repeating letter with one between (`odo`),
     ///   but no pair that appears twice.
-    #[test]
-    fn test_examples2() {
-        assert!(is_nice2("qjhvhtzxzqqjkmpb"));
-        assert!(is_nice2("xxyxx"));
-        assert!(!is_nice2("uurcxstgmygtbstg"));
-        assert!(!is_nice2("ieodomkazucvgmuy"));
+    #[rstest(
+        input,
+        expect,
+        case("qjhvhtzxzqqjkmpb", true),
+        case("xxyxx", true),
+        case("uurcxstgmygtbstg", false),
+        case("ieodomkazucvgmuy", false)
+    )]
+    fn test_examples2(input: &str, expect: bool) {
+        let charvec: CharVec = input.parse().unwrap();
+        assert_eq!(is_nice2(&charvec), expect);
     }
 }
