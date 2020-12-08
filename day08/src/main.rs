@@ -20,6 +20,10 @@ struct RunArgs {
     /// run part 2
     #[structopt(long)]
     part2: bool,
+
+    /// run a roundtrip test on the input
+    #[structopt(long)]
+    roundtrip: bool,
 }
 
 impl RunArgs {
@@ -47,6 +51,9 @@ fn main() -> Result<()> {
     }
     if args.part2 {
         part2(&input_path)?;
+    }
+    if args.roundtrip {
+        day08::roundtrip_input(&input_path)?;
     }
     Ok(())
 }
