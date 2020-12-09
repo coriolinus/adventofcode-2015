@@ -8,30 +8,64 @@
 //! next step. For each step, take the previous value, and replace each run of digits (like `111`)
 //! with the number of digits (`3`) followed by the digit itself (`1`).
 
-pub fn look_and_say(sequence: &str) -> String {
-    let mut ret = String::new();
+use aoc2015::parse;
+use std::path::Path;
+use thiserror::Error;
 
-    let mut cur_char: Option<char> = None;
-    let mut cur_char_count: usize = 0;
+pub fn look_and_say(sequence: &str) -> String {
+    if sequence.is_empty() {
+        return String::new();
+    }
+
+    let mut output = String::with_capacity(sequence.len() * 2);
+    let mut current = sequence.chars().next().expect("non-empty; qed");
+    let mut cur_count: u32 = 0;
 
     for ch in sequence.chars() {
-        if Some(ch) != cur_char {
-            if cur_char.is_some() {
-                ret = ret + &cur_char_count.to_string();
-                ret.push(cur_char.unwrap());
-            }
-            cur_char = Some(ch);
-            cur_char_count = 0;
+        if ch != current {
+            output += &cur_count.to_string();
+            output.push(current);
+
+            current = ch;
+            cur_count = 0;
         }
-        cur_char_count += 1;
+        cur_count += 1;
     }
 
-    if cur_char.is_some() {
-        ret = ret + &cur_char_count.to_string();
-        ret.push(cur_char.unwrap());
-    }
+    output += &cur_count.to_string();
+    output.push(current);
 
-    ret
+    output
+}
+
+pub fn look_and_say_n(sequence: &str, n: usize) -> String {
+    let mut sequence = sequence.to_string();
+    for _ in 0..n {
+        sequence = look_and_say(&sequence);
+    }
+    sequence
+}
+
+pub fn part1(input: &Path) -> Result<(), Error> {
+    for (idx, line) in parse::<String>(input)?.enumerate() {
+        let l_s = look_and_say_n(&line, 40);
+        println!("part 1 line {}: {}", idx, l_s.len());
+    }
+    Ok(())
+}
+
+pub fn part2(input: &Path) -> Result<(), Error> {
+    for (idx, line) in parse::<String>(input)?.enumerate() {
+        let l_s = look_and_say_n(&line, 50);
+        println!("part 2 line {}: {}", idx, l_s.len());
+    }
+    Ok(())
+}
+
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
 }
 
 #[cfg(test)]

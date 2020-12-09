@@ -1,18 +1,52 @@
-use util::get_line_input;
+use aoc2015::{config::Config, website::get_input};
+use day10::{part1, part2};
 
-use day10::look_and_say;
+use color_eyre::eyre::Result;
+use std::path::PathBuf;
+use structopt::StructOpt;
 
-fn main() {
-    let mut line = get_line_input("Look and Say seed: ")
-        .unwrap()
-        .trim()
-        .to_string();
-    for _ in 0..40 {
-        line = look_and_say(&line);
+const DAY: u8 = 10;
+
+#[derive(StructOpt, Debug)]
+struct RunArgs {
+    /// input file
+    #[structopt(long, parse(from_os_str))]
+    input: Option<PathBuf>,
+
+    /// skip part 1
+    #[structopt(long = "no-part1")]
+    no_part1: bool,
+
+    /// run part 2
+    #[structopt(long)]
+    part2: bool,
+}
+
+impl RunArgs {
+    fn input(&self) -> Result<PathBuf> {
+        match self.input {
+            None => {
+                let config = Config::load()?;
+                // this does nothing if the input file already exists, but
+                // simplifies the workflow after cloning the repo on a new computer
+                get_input(&config, DAY)?;
+                Ok(config.input_for(DAY))
+            }
+            Some(ref path) => Ok(path.clone()),
+        }
     }
-    println!("L&S len after 40: {}", line.len());
-    for _ in 0..10 {
-        line = look_and_say(&line);
+}
+
+fn main() -> Result<()> {
+    color_eyre::install()?;
+    let args = RunArgs::from_args();
+    let input_path = args.input()?;
+
+    if !args.no_part1 {
+        part1(&input_path)?;
     }
-    println!("L&S len after 50: {}", line.len());
+    if args.part2 {
+        part2(&input_path)?;
+    }
+    Ok(())
 }
