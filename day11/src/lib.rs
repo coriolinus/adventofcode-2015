@@ -21,160 +21,177 @@
 //! - Passwords must contain at least two different, non-overlapping pairs of letters, like `aa`,
 //!   `bb`, or `zz`.
 
-const ALLOWED_LETTERS: &'static str = "abcdefghjkmnpqrstuvwxyz";
-const FIRST_ALLOWED_LETTER: char = 'a';
+use aoc2015::parse;
+use std::{fmt, path::Path};
+use thiserror::Error;
 
-pub fn increment(old: &str) -> String {
-    if old.is_empty() {
-        return FIRST_ALLOWED_LETTER.to_string(); // handles the recursive case
-    }
+// low order bytes are stored in low order indices
+#[derive(Clone, Debug)]
+struct Password(Vec<u8>);
 
-    let mut ret = old.to_string();
-    let last_char = ret.pop().unwrap();
+impl std::str::FromStr for Password {
+    type Err = &'static str;
 
-    if let Some(new_last_char) = increment_char(last_char) {
-        ret.push(new_last_char);
-        return ret;
-    } else {
-        // Can't get the new last char, so increment the whole string
-        ret = increment(&ret);
-        ret.push(FIRST_ALLOWED_LETTER);
-        return ret;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if !s
+            .chars()
+            .all(|ch| ch.is_ascii_alphabetic() && ch.is_ascii_lowercase())
+        {
+            Err("password must contain only lowercase ascii alphabetic chars")
+        } else {
+            let mut bytes = s.as_bytes().to_vec();
+            bytes.reverse();
+            Ok(Password(bytes))
+        }
     }
 }
 
-fn increment_char(old: char) -> Option<char> {
-    increment_char_given_alphabet(old, ALLOWED_LETTERS)
+impl fmt::Display for Password {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        let mut bytes = self.0.clone();
+        bytes.reverse();
+        write!(
+            f,
+            "{}",
+            std::str::from_utf8(&bytes).map_err(|_| fmt::Error)?
+        )
+    }
 }
 
-fn increment_char_given_alphabet(old: char, alphabet: &str) -> Option<char> {
-    let mut allowed_chs = alphabet.chars();
-    loop {
-        if let Some(next) = allowed_chs.next() {
-            if next == old {
+// returns `carry`
+fn incr_char(ch: &mut u8) -> bool {
+    let mut carry = false;
+    *ch += 1;
+    if *ch > b'z' {
+        *ch = b'a';
+        carry = true;
+    }
+    carry
+}
+
+impl Password {
+    fn increment(&mut self) {
+        let mut carry = true;
+        for ch in self.0.iter_mut() {
+            carry = incr_char(ch);
+            if !carry {
                 break;
             }
-        } else {
-            // we've run out of characters
-            // input wasn't in ALLOWED_LETTERS
-            // so we do this by hand
-            return match old {
-                'i' => Some('j'),
-                'l' => Some('m'),
-                'o' => Some('p'),
-                _ => None,
-            };
+        }
+        if carry {
+            // overflow
+            self.0.push(b'a');
         }
     }
-    // None if `old` was `'z'`
-    allowed_chs.next()
-}
 
-fn contains_forbidden(s: &str) -> bool {
-    for ch in s.chars() {
-        for f in vec!['i', 'o', 'l'] {
-            if ch == f {
-                return true;
-            }
-        }
-    }
-    false
-}
-
-fn contains_straight(s: &str) -> bool {
-    if s.len() < 3 {
-        return false;
+    fn includes_increasing_straight(&self) -> bool {
+        // note: this looks like a decreasing straight because
+        // the password is stored backwards internally
+        self.0
+            .windows(3)
+            .any(|window| window[0] == window[1] + 1 && window[1] == window[2] + 1)
     }
 
-    let triple_it = s
-        .chars()
-        .zip(s.chars().skip(1).zip(s.chars().skip(2)))
-        .map(|(x, (y, z))| (x, y, z));
+    fn includes_forbidden_char(&self) -> bool {
+        self.0
+            .iter()
+            .any(|&ch| ch == b'i' || ch == b'o' || ch == b'l')
+    }
 
-    for (x, y, z) in triple_it {
-        if let Some(x1) = increment_char_given_alphabet(x, "abcdefghijklmnopqrstuvwxyz") {
-            if let Some(x2) = increment_char_given_alphabet(x1, "abcdefghijklmnopqrstuvwxyz") {
-                if y == x1 && z == x2 {
+    fn includes_at_least_two_non_overlapping_pairs(&self) -> bool {
+        let mut last_window_position = None;
+        let mut already_found_pair = false;
+        for (idx, window) in self.0.windows(2).enumerate() {
+            if window[0] == window[1] {
+                if idx > 0 && last_window_position == Some(idx - 1) {
+                    continue;
+                }
+                last_window_position = Some(idx);
+                if !already_found_pair {
+                    already_found_pair = true;
+                } else {
                     return true;
                 }
             }
         }
+        false
     }
 
-    false
-}
-
-fn contains_pairs(s: &str) -> bool {
-    if s.len() < 4 {
-        return false;
+    pub fn valid(&self) -> bool {
+        !self.includes_forbidden_char()
+            && self.includes_increasing_straight()
+            && self.includes_at_least_two_non_overlapping_pairs()
     }
 
-    let double_it = s.chars().zip(s.chars().skip(1)).enumerate();
-
-    for (i, (a, b)) in double_it {
-        if a == b {
-            for (y, z) in s.chars().zip(s.chars().skip(1)).skip(i + 2) {
-                if y == z && a != y {
-                    return true;
-                }
-            }
+    pub fn increment_checked(&mut self) {
+        let mut is_valid = false;
+        while !is_valid {
+            self.increment();
+            is_valid = self.valid();
         }
     }
-
-    false
 }
 
-pub fn meets_requirements(s: &str) -> bool {
-    s.len() == 8 && !contains_forbidden(s) && contains_straight(s) && contains_pairs(s)
-}
-
-pub fn next_pw(s: &str) -> String {
-    let mut new = increment(s);
-    while !meets_requirements(&new) {
-        new = increment(&new);
-        if new.len() > 8 {
-            return String::from("");
-        }
+pub fn part1(input: &Path) -> Result<(), Error> {
+    for (idx, mut password) in parse::<Password>(input)?.enumerate() {
+        password.increment_checked();
+        println!("part 1 line {}: {}", idx, password);
     }
-    new
+    Ok(())
+}
+
+pub fn part2(input: &Path) -> Result<(), Error> {
+    for (idx, mut password) in parse::<Password>(input)?.enumerate() {
+        password.increment_checked();
+        password.increment_checked();
+        println!("part 2 line {}: {}", idx, password);
+    }
+    Ok(())
+}
+
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
 }
 
 #[cfg(test)]
 mod tests {
-    use super::contains_straight;
-    use super::{increment, meets_requirements, next_pw};
+    use super::*;
 
     #[test]
     fn test_increment() {
-        let from = vec![
-            "", "a", "h", "k", "n", "z", "xy", "xz", "ya", "zz", "hepxcrrq",
-        ];
-        let to = vec![
-            "a", "b", "j", "m", "p", "aa", "xz", "ya", "yb", "aaa", "hepxcrrr",
-        ];
+        let from = vec!["", "a", "z", "xy", "xz", "ya", "zz", "hepxcrrq"];
+        let to = vec!["a", "b", "aa", "xz", "ya", "yb", "aaa", "hepxcrrr"];
 
         for (from, to) in from.iter().zip(to) {
-            assert_eq!(increment(from), to.to_string());
+            dbg!(from);
+            let mut password = dbg!(from.parse::<Password>()).unwrap();
+            password.increment();
+            assert_eq!(password.to_string(), to);
         }
     }
 
     #[test]
-    fn test_meets_requirements() {
+    fn test_valid() {
         let from = vec!["hijklmmn", "abbceffg", "abbcegjk", "abcdffaa", "ghjaabcc"];
         let to = vec![false, false, false, true, true];
 
         for (from, to) in from.iter().zip(to) {
-            assert_eq!(meets_requirements(from), to);
+            let password = from.parse::<Password>().unwrap();
+            assert_eq!(password.valid(), to);
         }
     }
 
     #[test]
-    fn test_next_pw() {
+    fn test_increment_checked() {
         let from = vec!["abcdefgh", "ghijklmn"];
         let to = vec!["abcdffaa", "ghjaabcc"];
 
         for (from, to) in from.iter().zip(to) {
-            assert_eq!(next_pw(from), to);
+            let mut password = from.parse::<Password>().unwrap();
+            password.increment_checked();
+            assert_eq!(password.to_string(), to);
         }
     }
 
@@ -186,36 +203,8 @@ mod tests {
         let to = vec![true, false, false, true, true, false];
 
         for (from, to) in from.iter().zip(to) {
-            println!("Trying: {}", from);
-            assert_eq!(contains_straight(from), to);
-        }
-    }
-
-    #[test]
-    fn test_high_increments() {
-        let mut last5 = Vec::new();
-
-        let mut cur = String::from("hepxcrrq");
-
-        for _ in 0..100000 {
-            last5.push(cur.clone());
-            while last5.len() > 5 {
-                last5.remove(0);
-            }
-
-            if cur.len() > 8 {
-                break;
-            }
-
-            cur = increment(&cur);
-        }
-
-        for (i, l) in last5.iter().enumerate() {
-            println!("last5[-{}]: {}", 5 - i, l);
-        }
-
-        if cur.len() > 8 {
-            panic!();
+            let password = from.parse::<Password>().unwrap();
+            assert_eq!(password.includes_increasing_straight(), to);
         }
     }
 }
