@@ -9,105 +9,179 @@
 //! have a circular table that will be just big enough to fit everyone comfortably, and so each
 //! person will have exactly two neighbors.
 
-use std::collections::{HashMap, HashSet};
-
+use aoc2015::parse;
 use permutohedron::heap_recursive;
+use std::{
+    collections::{HashMap, HashSet},
+    iter::FromIterator,
+    path::Path,
+};
+use thiserror::Error;
 
-use util::parse::Parser;
+#[derive(Clone, Copy, Debug, parse_display::FromStr, parse_display::Display)]
+#[display(style = "snake_case")]
+enum Modify {
+    Gain,
+    Lose,
+}
 
-pub type Relationships = HashMap<(String, String), i32>;
-
-pub fn parse_neighbors(lines: &str) -> (HashSet<String>, Relationships) {
-    // create parser
-    let parser = Parser::default()
-        .force_lowercase(false)
-        .require_at_least(Some(11))
-        .require_fewer_than(Some(12))
-        .fixed_tokens({
-            let mut h = HashMap::new();
-            h.insert(1, "would".to_string());
-            h.insert(4, "happiness".to_string());
-            h.insert(5, "units".to_string());
-            h.insert(6, "by".to_string());
-            h.insert(7, "sitting".to_string());
-            h.insert(8, "next".to_string());
-            h.insert(9, "to".to_string());
-            h
-        });
-
-    let mut r = Relationships::default();
-    let mut p = HashSet::default();
-
-    for line in lines.split('\n') {
-        let mut line = line.trim().to_string();
-        if line.is_empty() {
-            continue;
-        }
-
-        // Discard the trailing dot.
-        line.pop();
-
-        if let Ok(v) = parser.parse(&line) {
-            let ref left = v.tokens[0];
-            let ref gain_lose = v.tokens[1];
-            let ref n_str = v.tokens[2];
-            let ref right = v.tokens[3];
-
-            let mut n = i32::from_str_radix(n_str, 10).unwrap();
-
-            if gain_lose == &String::from("lose") {
-                n *= -1;
-            } else if gain_lose == &String::from("gain") {
-            } else {
-                continue;
-            }
-
-            r.insert((left.clone(), right.clone()), n);
-            p.insert(left.clone());
+impl Modify {
+    fn modify(self, n: i32) -> i32 {
+        match self {
+            Self::Gain => n,
+            Self::Lose => -n,
         }
     }
+}
 
-    (p, r)
+#[derive(Clone, Debug, parse_display::FromStr, parse_display::Display)]
+#[display("{who} would {modify} {qty} happiness units by sitting next to {other}.")]
+struct Edge {
+    who: String,
+    modify: Modify,
+    qty: i32,
+    other: String,
+}
+
+pub type Person = usize;
+pub type Relationships = HashMap<(Person, Person), i32>;
+
+struct Graph {
+    relationships: Relationships,
+    index: Vec<String>,
+}
+
+impl FromIterator<Edge> for Graph {
+    fn from_iter<T: IntoIterator<Item = Edge>>(iter: T) -> Self {
+        let iter = iter.into_iter();
+        let (min_size, _) = iter.size_hint();
+
+        // create temporary structures holding string data
+        let mut people = HashSet::with_capacity(min_size);
+        let mut relationships = HashMap::with_capacity(min_size);
+
+        for Edge {
+            who,
+            modify,
+            qty,
+            other,
+        } in iter
+        {
+            people.insert(who.clone());
+            people.insert(other.clone());
+            relationships.insert((who, other), modify.modify(qty));
+        }
+
+        // convert those data structures into ones which are easier to use, refering to people
+        // by their positional index in `index`.
+        let index = {
+            let mut index: Vec<_> = people.iter().cloned().collect();
+            index.sort();
+            index
+        };
+
+        let index_of = {
+            let mut index_of = HashMap::with_capacity(index.len());
+            for (idx, person) in index.iter().cloned().enumerate() {
+                index_of.insert(person, idx);
+            }
+            index_of
+        };
+
+        let relationships = relationships
+            .into_iter()
+            .map(|((who, other), qty)| ((index_of[&who], index_of[&other]), qty))
+            .collect();
+
+        Graph {
+            relationships,
+            index,
+        }
+    }
 }
 
 pub fn evaluate_ordering(
-    people: &Vec<String>,
-    rels: &Relationships,
-) -> (i32, HashMap<String, i32>) {
+    people: &[Person],
+    relationships: &Relationships,
+    mut happiness_map: Option<&mut HashMap<Person, i32>>,
+) -> i32 {
     let mut total_happiness = 0;
-    let mut personal_happiness = HashMap::new();
 
-    // compute personal happiness for each member of the circle
-    for (i, person) in people.iter().enumerate() {
-        let ref left = people[if i > 0 { i - 1 } else { people.len() - 1 }];
-        let ref right = people[if i < people.len() - 1 { i + 1 } else { 0 }];
-
-        let ph = rels.get(&(person.to_owned(), left.to_owned())).unwrap()
-            + rels.get(&(person.to_owned(), right.to_owned())).unwrap();
-
-        total_happiness += ph;
-        personal_happiness.insert(person.clone(), ph);
+    if let Some(happiness_map) = happiness_map.as_mut() {
+        happiness_map.clear();
     }
 
-    (total_happiness, personal_happiness)
+    // compute personal happiness for each member of the circle
+    for (i, person) in people.iter().copied().enumerate() {
+        let left = people[if i > 0 { i - 1 } else { people.len() - 1 }];
+        let right = people[if i < people.len() - 1 { i + 1 } else { 0 }];
+
+        let personal_happiness = relationships
+            .get(&(person, left))
+            .copied()
+            .unwrap_or_default()
+            + relationships
+                .get(&(person, right))
+                .copied()
+                .unwrap_or_default();
+
+        total_happiness += personal_happiness;
+
+        if let Some(happiness_map) = happiness_map.as_mut() {
+            *happiness_map.entry(person).or_default() += personal_happiness;
+        }
+    }
+
+    total_happiness
 }
 
-pub fn find_best_ordering(people: &HashSet<String>, rels: &Relationships) -> Vec<String> {
-    let mut places = people.iter().collect::<Vec<_>>();
-    let mut ret = Vec::new();
+pub fn find_best_ordering(n_people: usize, relationships: &Relationships) -> Vec<Person> {
+    let mut places: Vec<_> = (0..n_people).collect();
+    let mut best_ordering = Vec::new();
 
     let mut cur_happiness = i32::min_value();
 
     heap_recursive(&mut places, |ordering| {
-        // ordering = [&String]
-        let this_ord: Vec<_> = ordering.to_vec().iter().map(|&s| s.clone()).collect();
-        let (this_happiness, _) = evaluate_ordering(&this_ord, &rels);
+        let this_happiness = evaluate_ordering(ordering, &relationships, None);
 
         if this_happiness > cur_happiness {
-            ret = this_ord;
             cur_happiness = this_happiness;
+            best_ordering = ordering.to_vec();
         }
     });
 
-    ret
+    best_ordering
+}
+
+pub fn part1(input: &Path) -> Result<(), Error> {
+    let Graph {
+        relationships,
+        index,
+    } = parse(input)?.collect();
+
+    let n_people = index.len();
+    let best_ordering = find_best_ordering(n_people, &relationships);
+    let happiness = evaluate_ordering(&best_ordering, &relationships, None);
+    println!("Best happiness: {}", happiness);
+    Ok(())
+}
+
+pub fn part2(input: &Path) -> Result<(), Error> {
+    let Graph {
+        relationships,
+        index,
+    } = parse(input)?.collect();
+
+    let n_people = index.len() + 1;
+    let best_ordering = find_best_ordering(n_people, &relationships);
+    let happiness = evaluate_ordering(&best_ordering, &relationships, None);
+
+    println!("Best happiness: {}", happiness);
+    Ok(())
+}
+
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
 }
