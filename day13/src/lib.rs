@@ -100,23 +100,15 @@ impl FromIterator<Edge> for Graph {
     }
 }
 
-pub fn evaluate_ordering(
-    people: &[Person],
-    relationships: &Relationships,
-    mut happiness_map: Option<&mut HashMap<Person, i32>>,
-) -> i32 {
+pub fn evaluate_ordering(ordering: &[Person], relationships: &Relationships) -> i32 {
     let mut total_happiness = 0;
 
-    if let Some(happiness_map) = happiness_map.as_mut() {
-        happiness_map.clear();
-    }
-
     // compute personal happiness for each member of the circle
-    for (i, person) in people.iter().copied().enumerate() {
-        let left = people[if i > 0 { i - 1 } else { people.len() - 1 }];
-        let right = people[if i < people.len() - 1 { i + 1 } else { 0 }];
+    for (i, person) in ordering.iter().copied().enumerate() {
+        let left = ordering[if i > 0 { i - 1 } else { ordering.len() - 1 }];
+        let right = ordering[if i < ordering.len() - 1 { i + 1 } else { 0 }];
 
-        let personal_happiness = relationships
+        total_happiness += relationships
             .get(&(person, left))
             .copied()
             .unwrap_or_default()
@@ -124,25 +116,18 @@ pub fn evaluate_ordering(
                 .get(&(person, right))
                 .copied()
                 .unwrap_or_default();
-
-        total_happiness += personal_happiness;
-
-        if let Some(happiness_map) = happiness_map.as_mut() {
-            *happiness_map.entry(person).or_default() += personal_happiness;
-        }
     }
 
     total_happiness
 }
 
 pub fn find_best_ordering(n_people: usize, relationships: &Relationships) -> Vec<Person> {
-    let mut places: Vec<_> = (0..n_people).collect();
+    let mut ordering: Vec<_> = (0..n_people).collect();
     let mut best_ordering = Vec::new();
+    let mut cur_happiness = i32::MIN;
 
-    let mut cur_happiness = i32::min_value();
-
-    heap_recursive(&mut places, |ordering| {
-        let this_happiness = evaluate_ordering(ordering, &relationships, None);
+    heap_recursive(&mut ordering, |ordering| {
+        let this_happiness = evaluate_ordering(ordering, &relationships);
 
         if this_happiness > cur_happiness {
             cur_happiness = this_happiness;
@@ -161,7 +146,7 @@ pub fn part1(input: &Path) -> Result<(), Error> {
 
     let n_people = index.len();
     let best_ordering = find_best_ordering(n_people, &relationships);
-    let happiness = evaluate_ordering(&best_ordering, &relationships, None);
+    let happiness = evaluate_ordering(&best_ordering, &relationships);
     println!("Best happiness: {}", happiness);
     Ok(())
 }
@@ -174,9 +159,9 @@ pub fn part2(input: &Path) -> Result<(), Error> {
 
     let n_people = index.len() + 1;
     let best_ordering = find_best_ordering(n_people, &relationships);
-    let happiness = evaluate_ordering(&best_ordering, &relationships, None);
+    let happiness = evaluate_ordering(&best_ordering, &relationships);
 
-    println!("Best happiness: {}", happiness);
+    println!("Best happiness (+1 guest): {}", happiness);
     Ok(())
 }
 
