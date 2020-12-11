@@ -1,18 +1,52 @@
-use util::get_multiline_input;
+use aoc2015::{config::Config, website::get_input};
+use day14::{part1, part2};
 
-use day14::Reindeer;
+use color_eyre::eyre::Result;
+use std::path::PathBuf;
+use structopt::StructOpt;
 
-const RACE_LEN: usize = 2503;
+const DAY: u8 = 14;
 
-fn main() {
-    let lines = get_multiline_input("Reindeer definitions here:").unwrap();
-    let mut rs = Reindeer::parse_lines(&lines).unwrap();
-    Reindeer::fast_forward(&mut rs, RACE_LEN);
-    let winner = Reindeer::farthest(&rs).unwrap();
-    println!("Winner (old scoring): {:?}", winner);
+#[derive(StructOpt, Debug)]
+struct RunArgs {
+    /// input file
+    #[structopt(long, parse(from_os_str))]
+    input: Option<PathBuf>,
 
-    Reindeer::reset_all(&mut rs);
-    let (winner, pts) = Reindeer::new_race(&mut rs, RACE_LEN).unwrap();
-    println!("Winner (new scoring): {:?}", winner);
-    println!(" ...with {} points", pts);
+    /// skip part 1
+    #[structopt(long = "no-part1")]
+    no_part1: bool,
+
+    /// run part 2
+    #[structopt(long)]
+    part2: bool,
+}
+
+impl RunArgs {
+    fn input(&self) -> Result<PathBuf> {
+        match self.input {
+            None => {
+                let config = Config::load()?;
+                // this does nothing if the input file already exists, but
+                // simplifies the workflow after cloning the repo on a new computer
+                get_input(&config, DAY)?;
+                Ok(config.input_for(DAY))
+            }
+            Some(ref path) => Ok(path.clone()),
+        }
+    }
+}
+
+fn main() -> Result<()> {
+    color_eyre::install()?;
+    let args = RunArgs::from_args();
+    let input_path = args.input()?;
+
+    if !args.no_part1 {
+        part1(&input_path)?;
+    }
+    if args.part2 {
+        part2(&input_path)?;
+    }
+    Ok(())
 }

@@ -25,24 +25,39 @@
 //! Given the descriptions of each reindeer (in your puzzle input), after exactly 2503 seconds,
 //! what distance has the winning reindeer traveled?
 
-use std::collections::HashMap;
-use std::str::FromStr;
+use aoc2015::parse;
+use std::iter::FromIterator;
+use std::path::Path;
+use thiserror::Error;
 
-use util::parse::{ParseError, Parser};
+const RACE_DURATION: u32 = 2503;
 
 /// What a Reindeer is currently doing.
-///
-/// Both Flying and Resting keep track of how many seconds remain in that state.
-/// When that number reaches `0`, the state immediately switches to the other state at its maximum
-/// duration.
-#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub enum ReindeerState {
-    Flying(u32),
-    Resting(u32),
+    Flying,
+    Resting,
 }
-use ReindeerState::{Flying, Resting};
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+impl Default for ReindeerState {
+    fn default() -> Self {
+        ReindeerState::Flying
+    }
+}
+
+impl ReindeerState {
+    fn toggle(&mut self) {
+        *self = match self {
+            ReindeerState::Flying => ReindeerState::Resting,
+            ReindeerState::Resting => ReindeerState::Flying,
+        }
+    }
+}
+
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, Hash, parse_display::Display, parse_display::FromStr,
+)]
+#[display("{name} can fly {speed} km/s for {fly_duration} seconds, but then must rest for {rest_duration} seconds.")]
 pub struct Reindeer {
     pub name: String,
     /// km/s
@@ -52,9 +67,17 @@ pub struct Reindeer {
     /// seconds
     pub rest_duration: u32,
 
+    #[from_str(default)]
     pub distance: u32,
 
+    #[from_str(default)]
     pub state: ReindeerState,
+
+    #[from_str(default)]
+    pub duration_in_state: u32,
+
+    #[from_str(default)]
+    pub points: u32,
 }
 
 impl Reindeer {
@@ -64,186 +87,144 @@ impl Reindeer {
             speed: speed,
             fly_duration: fly,
             rest_duration: rest,
-            distance: 0,
-            state: ReindeerState::Flying(fly),
-        }
-    }
-
-    pub fn parse_lines(lines: &str) -> Result<Vec<Reindeer>, ParseError> {
-        let mut ret = Vec::new();
-        for line in lines.split('\n') {
-            let r = Reindeer::from_line(line);
-            if r.is_err() {
-                let re = r.unwrap_err();
-                if re == ParseError::InputIsEmpty {
-                    continue;
-                } else {
-                    return Err(re);
-                }
-            }
-            ret.push(r.unwrap());
-        }
-
-        Ok(ret)
-    }
-
-    pub fn from_line(line: &str) -> Result<Reindeer, ParseError> {
-        let line = line.trim();
-        if line.is_empty() {
-            return Err(ParseError::InputIsEmpty);
-        }
-
-        let parser = Parser::default()
-            .force_lowercase(false)
-            .require_at_least(Some(15))
-            .require_fewer_than(Some(16))
-            .fixed_tokens({
-                let mut h = HashMap::new();
-                // 0 -> Name
-                h.insert(1, "can".to_string());
-                h.insert(2, "fly".to_string());
-                // 3 -> Speed
-                h.insert(4, "km/s".to_string());
-                h.insert(5, "for".to_string());
-                // 6 -> fly_duration
-                h.insert(7, "seconds,".to_string());
-                h.insert(8, "but".to_string());
-                h.insert(9, "then".to_string());
-                h.insert(10, "must".to_string());
-                h.insert(11, "rest".to_string());
-                h.insert(12, "for".to_string());
-                // 13 -> rest_duration
-                h.insert(14, "seconds.".to_string());
-                h
-            });
-
-        match parser.parse(line) {
-            Ok(v) => {
-                let ref name = v.tokens[0];
-                let ref speedt = v.tokens[1];
-                let ref flyt = v.tokens[2];
-                let ref restt = v.tokens[3];
-
-                let speed = u32::from_str(speedt).unwrap();
-                let fly = u32::from_str(flyt).unwrap();
-                let rest = u32::from_str(restt).unwrap();
-
-                Ok(Reindeer::new(name.to_owned(), speed, fly, rest))
-            }
-            Err(e) => Err(e),
+            ..Default::default()
         }
     }
 
     pub fn tick(&mut self) {
-        match self.state {
-            Flying(_) => self.distance += self.speed,
-            _ => {}
+        let target_duration = match self.state {
+            ReindeerState::Flying => self.fly_duration,
+            ReindeerState::Resting => self.rest_duration,
+        };
+        if self.duration_in_state >= target_duration {
+            self.state.toggle();
+            self.duration_in_state = 0;
+        } else {
+            self.duration_in_state += 1;
         }
 
-        self.state = match self.state {
-            Flying(n) => {
-                if n == 1 {
-                    Resting(self.rest_duration)
-                } else {
-                    Flying(n - 1)
-                }
-            }
-            Resting(n) => {
-                if n == 1 {
-                    Flying(self.fly_duration)
-                } else {
-                    Resting(n - 1)
-                }
-            }
-        };
+        if let ReindeerState::Flying = self.state {
+            self.distance += self.speed;
+        }
     }
 
     pub fn reset(&mut self) {
         self.distance = 0;
-        self.state = Flying(self.fly_duration);
+        self.state = ReindeerState::Flying;
+        self.duration_in_state = 0;
+    }
+}
+
+pub struct Race {
+    reindeer: Vec<Reindeer>,
+    timer: u32,
+}
+
+impl FromIterator<Reindeer> for Race {
+    fn from_iter<T: IntoIterator<Item = Reindeer>>(iter: T) -> Self {
+        let iter = iter.into_iter();
+        let (min_bound, _) = iter.size_hint();
+
+        let mut reindeer = Vec::with_capacity(min_bound);
+
+        for r in iter {
+            reindeer.push(r);
+        }
+
+        Race { reindeer, timer: 0 }
+    }
+}
+
+impl Race {
+    fn get_reindeer(
+        &self,
+        by: impl 'static + Copy + Fn(&Reindeer) -> u32,
+    ) -> Box<dyn '_ + Iterator<Item = usize>> {
+        if let Some(best) = self.reindeer.iter().map(by).max() {
+            Box::new(
+                self.reindeer
+                    .iter()
+                    .enumerate()
+                    .filter_map(move |(idx, reindeer)| {
+                        if by(reindeer) == best {
+                            Some(idx)
+                        } else {
+                            None
+                        }
+                    }),
+            )
+        } else {
+            Box::new(std::iter::empty())
+        }
     }
 
-    pub fn tick_all(rs: &mut Vec<Reindeer>) {
-        for r in rs {
+    fn by_distance(&self) -> Box<dyn '_ + Iterator<Item = usize>> {
+        self.get_reindeer(|reindeer| reindeer.distance)
+    }
+
+    fn by_points(&self) -> Box<dyn '_ + Iterator<Item = usize>> {
+        self.get_reindeer(|reindeer| reindeer.points)
+    }
+
+    fn in_lead(&self, by: impl IntoIterator<Item = usize>) -> impl Iterator<Item = &Reindeer> {
+        by.into_iter().map(move |index| &self.reindeer[index])
+    }
+
+    fn tick(&mut self) {
+        for r in self.reindeer.iter_mut() {
             r.tick();
         }
+
+        // we're pretty unlikely to have as much as a 3-way tie
+        let mut winner_indices = Vec::with_capacity(2);
+        winner_indices.extend(self.by_distance());
+        for winner_idx in winner_indices {
+            self.reindeer[winner_idx].points += 1;
+        }
+
+        self.timer += 1;
     }
 
-    pub fn reset_all(rs: &mut Vec<Reindeer>) {
-        for r in rs {
-            r.reset();
+    fn run_to_time(&mut self, finish_time: u32) {
+        while self.timer < finish_time {
+            self.tick();
         }
     }
+}
 
-    pub fn fast_forward(rs: &mut Vec<Reindeer>, seconds: usize) {
-        for _ in 0..seconds {
-            Reindeer::tick_all(rs);
-        }
-    }
+pub fn part1(input: &Path) -> Result<(), Error> {
+    let mut race: Race = parse(input)?.collect();
+    race.run_to_time(RACE_DURATION);
+    let winner = race
+        .in_lead(race.by_distance())
+        .next()
+        .ok_or(Error::NoWinner)?;
+    println!("winner: {} @ {}", winner.name, winner.distance);
+    Ok(())
+}
 
-    pub fn farthest(rs: &Vec<Reindeer>) -> Option<Reindeer> {
-        let mut ret: Option<Reindeer> = None;
+pub fn part2(input: &Path) -> Result<(), Error> {
+    let mut race: Race = parse(input)?.collect();
+    race.run_to_time(RACE_DURATION);
+    let winner = race
+        .in_lead(race.by_points())
+        .next()
+        .ok_or(Error::NoWinner)?;
+    println!("winner: {} @ {}", winner.name, winner.points);
+    Ok(())
+}
 
-        for r in rs {
-            ret = match ret {
-                Some(r_) => {
-                    if r_.distance < r.distance {
-                        Some(r.clone())
-                    } else {
-                        Some(r_)
-                    }
-                }
-                None => Some(r.clone()),
-            }
-        }
-
-        ret
-    }
-
-    pub fn new_race_tick(rs: &mut Vec<Reindeer>, pts: Vec<u32>) -> Vec<u32> {
-        Reindeer::tick_all(rs);
-        let f = Reindeer::farthest(&rs);
-
-        if f.is_none() {
-            return Vec::new();
-        }
-
-        let f = f.unwrap();
-
-        let mut npts = Vec::new();
-
-        for (r, p) in rs.iter().zip(pts) {
-            let np = if r.distance == f.distance { p + 1 } else { p };
-            npts.push(np);
-        }
-
-        npts
-    }
-
-    pub fn new_race(rs: &mut Vec<Reindeer>, seconds: usize) -> Option<(Reindeer, u32)> {
-        if rs.len() == 0 {
-            return None;
-        }
-        let mut pts = vec![0; rs.len()];
-
-        for _ in 0..seconds {
-            pts = Reindeer::new_race_tick(rs, pts);
-        }
-
-        let m = pts.iter().max().unwrap().to_owned();
-        for (r, p) in rs.iter().zip(pts) {
-            if p == m {
-                return Some((r.clone(), p));
-            }
-        }
-        None
-    }
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+    #[error("no reindeer won :(")]
+    NoWinner,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ReindeerState::{Flying, Resting};
 
     fn get_comet() -> Reindeer {
         Reindeer::new("Comet".to_string(), 14, 10, 127)
@@ -277,14 +258,14 @@ mod tests {
 
         assert_eq!(176, dancer.distance);
         assert_eq!(140, comet.distance);
-        assert_eq!(Resting(126), comet.state);
-        assert_eq!(Resting(162), dancer.state);
+        assert_eq!(ReindeerState::Resting, comet.state);
+        assert_eq!(ReindeerState::Flying, dancer.state);
 
         comet.tick();
         dancer.tick();
 
-        assert_eq!(Resting(125), comet.state);
-        assert_eq!(Resting(161), dancer.state);
+        assert_eq!(ReindeerState::Resting, comet.state);
+        assert_eq!(ReindeerState::Resting, dancer.state);
     }
 
     #[test]
@@ -298,12 +279,12 @@ mod tests {
         }
 
         match comet.state {
-            Resting(_) => {}
-            Flying(_) => panic!("Comet should be resting!"),
+            ReindeerState::Resting => {}
+            ReindeerState::Flying => panic!("Comet should be resting!"),
         }
         match dancer.state {
-            Resting(_) => {}
-            Flying(_) => panic!("Dancer should be resting!"),
+            ReindeerState::Resting => {}
+            ReindeerState::Flying => panic!("Dancer should be resting!"),
         }
 
         assert_eq!(comet.distance, 1120);
@@ -312,9 +293,14 @@ mod tests {
 
     #[test]
     fn test_new_race() {
-        let mut rs = vec![get_comet(), get_dancer()];
-        let (winner, pts) = Reindeer::new_race(&mut rs, 1000).unwrap();
+        let mut race: Race = [get_comet(), get_dancer()].iter().cloned().collect();
+        race.run_to_time(1000);
+        let winner = race
+            .in_lead(race.by_points())
+            .next()
+            .ok_or(Error::NoWinner)
+            .unwrap();
         assert_eq!(winner.name, "Dancer");
-        assert_eq!(pts, 689);
+        assert_eq!(winner.points, 689);
     }
 }
