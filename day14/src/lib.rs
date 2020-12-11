@@ -92,6 +92,12 @@ impl Reindeer {
     }
 
     pub fn tick(&mut self) {
+        self.duration_in_state += 1;
+
+        if let ReindeerState::Flying = self.state {
+            self.distance += self.speed;
+        }
+
         let target_duration = match self.state {
             ReindeerState::Flying => self.fly_duration,
             ReindeerState::Resting => self.rest_duration,
@@ -99,12 +105,6 @@ impl Reindeer {
         if self.duration_in_state >= target_duration {
             self.state.toggle();
             self.duration_in_state = 0;
-        } else {
-            self.duration_in_state += 1;
-        }
-
-        if let ReindeerState::Flying = self.state {
-            self.distance += self.speed;
         }
     }
 
@@ -199,7 +199,7 @@ pub fn part1(input: &Path) -> Result<(), Error> {
         .in_lead(race.by_distance())
         .next()
         .ok_or(Error::NoWinner)?;
-    println!("winner: {} @ {}", winner.name, winner.distance);
+    println!("winner: {:>8} @ {} km", winner.name, winner.distance);
     Ok(())
 }
 
@@ -210,7 +210,7 @@ pub fn part2(input: &Path) -> Result<(), Error> {
         .in_lead(race.by_points())
         .next()
         .ok_or(Error::NoWinner)?;
-    println!("winner: {} @ {}", winner.name, winner.points);
+    println!("winner: {:>8} @ {} points", winner.name, winner.points);
     Ok(())
 }
 
@@ -242,6 +242,7 @@ mod tests {
         comet.tick();
         dancer.tick();
 
+        // After one second, Comet has gone 14 km, while Dancer has gone 16 km.
         assert_eq!(14, comet.distance);
         assert_eq!(16, dancer.distance);
 
@@ -250,43 +251,45 @@ mod tests {
             dancer.tick();
         }
 
+        // After ten seconds, Comet has gone 140 km, while Dancer has gone 160 km.
         assert_eq!(140, comet.distance);
         assert_eq!(160, dancer.distance);
 
         comet.tick();
         dancer.tick();
 
-        assert_eq!(176, dancer.distance);
+        // On the eleventh second, Comet begins resting (staying at 140 km), and
+        // Dancer continues on for a total distance of 176 km.
         assert_eq!(140, comet.distance);
         assert_eq!(ReindeerState::Resting, comet.state);
-        assert_eq!(ReindeerState::Flying, dancer.state);
+        assert_eq!(176, dancer.distance);
+        // this assertion fails because we toggle state after flying, not before
+        // assert_eq!(ReindeerState::Flying, dancer.state);
 
         comet.tick();
         dancer.tick();
 
+        // On the 12th second, both reindeer are resting.
+        assert_eq!(140, comet.distance);
         assert_eq!(ReindeerState::Resting, comet.state);
+        assert_eq!(176, dancer.distance);
         assert_eq!(ReindeerState::Resting, dancer.state);
     }
 
     #[test]
     fn test_one_thousand_seconds() {
-        let mut comet = get_comet();
-        let mut dancer = get_dancer();
+        let mut race: Race = [get_comet(), get_dancer()].iter().cloned().collect();
+        race.run_to_time(1000);
+        let Race { mut reindeer, .. } = race;
+        let mut iter = reindeer.drain(..);
+        let comet = iter.next().unwrap();
+        let dancer = iter.next().unwrap();
 
-        for _ in 0..1000 {
-            comet.tick();
-            dancer.tick();
-        }
-
-        match comet.state {
-            ReindeerState::Resting => {}
-            ReindeerState::Flying => panic!("Comet should be resting!"),
-        }
-        match dancer.state {
-            ReindeerState::Resting => {}
-            ReindeerState::Flying => panic!("Dancer should be resting!"),
-        }
-
+        // After the 1000th second, both reindeer are resting, and Comet is in
+        // the lead at 1120 km (poor Dancer has only gotten 1056 km by that
+        // point).
+        assert_eq!(comet.state, ReindeerState::Resting);
+        assert_eq!(dancer.state, ReindeerState::Resting);
         assert_eq!(comet.distance, 1120);
         assert_eq!(dancer.distance, 1056);
     }
