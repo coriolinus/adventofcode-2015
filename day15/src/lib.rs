@@ -91,11 +91,13 @@ Cinnamon: capacity 2, durability 3, flavor -2, texture -1, calories 3
     fn test_hill_climb_example() {
         let recipe = example().collect::<Recipe>().climb_goodness();
         let get_ingredient = |name: &str| {
-            recipe
-                .ingredients
-                .keys()
-                .find(|ingredient| ingredient.name == name)
-                .map(|ingredient| recipe.ingredients[ingredient])
+            recipe.ingredients.iter().find_map(|(ingredient, qty)| {
+                if ingredient.name == name {
+                    Some(*qty)
+                } else {
+                    None
+                }
+            })
         };
 
         assert_eq!(recipe.goodness(), 62842880);
@@ -111,11 +113,13 @@ Cinnamon: capacity 2, durability 3, flavor -2, texture -1, calories 3
         let recipe = recipe.unwrap();
 
         let get_ingredient = |name: &str| {
-            recipe
-                .ingredients
-                .keys()
-                .find(|ingredient| ingredient.name == name)
-                .map(|ingredient| recipe.ingredients[ingredient])
+            recipe.ingredients.iter().find_map(|(ingredient, qty)| {
+                if ingredient.name == name {
+                    Some(*qty)
+                } else {
+                    None
+                }
+            })
         };
 
         assert_eq!(recipe.goodness(), 57600000);
