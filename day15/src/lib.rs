@@ -20,70 +20,106 @@
 //!
 //! This program hill-climbs to a local maximum and hopes for the best.
 
-pub mod ingredient;
-use ingredient::Ingredient;
+pub mod neighbors;
 pub mod recipe;
+use recipe::Recipe;
 
-pub fn parse_ingredients(lines: &str) -> Vec<Ingredient> {
-    let mut v = Vec::new();
+use aoc2015::parse;
+use std::path::Path;
+use thiserror::Error;
 
-    for line in lines.split('\n') {
-        let ing = Ingredient::parse_line(line);
-        if ing.is_some() {
-            v.push(ing.unwrap());
-        }
-    }
+/// A model of a recipe ingredient
+#[derive(PartialEq, Eq, Hash, Clone, Debug, parse_display::Display, parse_display::FromStr)]
+#[display("{name}: capacity {capacity}, durability {durability}, flavor {flavor}, texture {texture}, calories {calories}")]
+pub struct Ingredient {
+    pub name: String,
+    pub capacity: i32,
+    pub durability: i32,
+    pub flavor: i32,
+    pub texture: i32,
+    pub calories: i32,
+}
 
-    v
+pub fn part1(input: &Path) -> Result<(), Error> {
+    let basic_recipe: Recipe = parse(input)?.collect();
+    let best_recipe = basic_recipe.climb_goodness();
+    println!("best recipe goodness: {}", best_recipe.goodness());
+    Ok(())
+}
+
+pub fn part2(input: &Path) -> Result<(), Error> {
+    const CONSTRAINT: i32 = 500;
+    let basic_recipe: Recipe = parse(input)?.collect();
+    let best_recipe = basic_recipe
+        .exhaust_goodness_constrained(CONSTRAINT)
+        .ok_or(Error::NoSuchRecipe(CONSTRAINT))?;
+    println!(
+        "best recipe goodness (constrained to {} calories): {}",
+        CONSTRAINT,
+        best_recipe.goodness()
+    );
+    Ok(())
+}
+
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+    #[error("no recipe found which matches constraint: {0} calories")]
+    NoSuchRecipe(i32),
 }
 
 #[cfg(test)]
 mod tests {
-    use super::parse_ingredients;
-    use super::recipe::Recipe;
+    use crate::{recipe::Recipe, Ingredient};
 
-    fn get_example() -> String {
-        let mut s = "Butterscotch: capacity -1, durability -2, flavor 6, texture 3, calories 8\n"
-            .to_string();
-        s.push_str("Cinnamon: capacity 2, durability 3, flavor -2, texture -1, calories 3\n");
-        s
+    const EXAMPLE: &str = "
+Butterscotch: capacity -1, durability -2, flavor 6, texture 3, calories 8
+Cinnamon: capacity 2, durability 3, flavor -2, texture -1, calories 3
+    ";
+
+    fn example() -> impl Iterator<Item = Ingredient> {
+        EXAMPLE.trim().split('\n').map(|line| line.parse().unwrap())
     }
 
     #[test]
-    fn test_parse_ingredients() {
-        let ings = parse_ingredients(&get_example());
-        assert_eq!(ings.len(), 2);
+    fn test_from_str() {
+        assert_eq!(example().count(), 2);
     }
 
     #[test]
     fn test_hill_climb_example() {
-        let ings = parse_ingredients(&get_example());
-        let ref bs = ings[0]; // butterscotch
-        let ref cm = ings[1]; // cinnamon
-
-        let recipe = Recipe::new(ings.to_owned()).climb_goodness();
-
-        // println!("");
-        // println!("Best recipe found: {}", recipe);
+        let recipe = example().collect::<Recipe>().climb_goodness();
+        let get_ingredient = |name: &str| {
+            recipe
+                .ingredients
+                .keys()
+                .find(|ingredient| ingredient.name == name)
+                .map(|ingredient| recipe.ingredients[ingredient])
+        };
 
         assert_eq!(recipe.goodness(), 62842880);
-        assert_eq!(recipe.ingredients.get(bs).unwrap(), &44);
-        assert_eq!(recipe.ingredients.get(cm).unwrap(), &56);
+        assert_eq!(get_ingredient("Butterscotch").unwrap(), 44);
+        assert_eq!(get_ingredient("Cinnamon").unwrap(), 56);
     }
 
     #[test]
     fn test_exhaust_example_constrained() {
-        let ings = parse_ingredients(&get_example());
-        let ref bs = ings[0]; // butterscotch
-        let ref cm = ings[1]; // cinnamon
-
-        let recipe = Recipe::new(ings.to_owned()).exhaust_goodness_constrained(500);
-
-        assert!(recipe.is_some());
-
+        let recipe = example()
+            .collect::<Recipe>()
+            .exhaust_goodness_constrained(500);
         let recipe = recipe.unwrap();
+
+        let get_ingredient = |name: &str| {
+            recipe
+                .ingredients
+                .keys()
+                .find(|ingredient| ingredient.name == name)
+                .map(|ingredient| recipe.ingredients[ingredient])
+        };
+
         assert_eq!(recipe.goodness(), 57600000);
-        assert_eq!(recipe.ingredients.get(bs).unwrap(), &40);
-        assert_eq!(recipe.ingredients.get(cm).unwrap(), &60);
+        assert_eq!(get_ingredient("Butterscotch").unwrap(), 40);
+        assert_eq!(get_ingredient("Cinnamon").unwrap(), 60);
     }
 }

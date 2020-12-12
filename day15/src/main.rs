@@ -1,19 +1,52 @@
-use util::get_multiline_input;
+use aoc2015::{config::Config, website::get_input};
+use day15::{part1, part2};
 
-use day15::parse_ingredients;
-use day15::recipe::Recipe;
+use color_eyre::eyre::Result;
+use std::path::PathBuf;
+use structopt::StructOpt;
 
-fn main() {
-    let lines = get_multiline_input("Ingredients (EOF term'd):").unwrap();
-    let ings = parse_ingredients(&lines);
-    let basic_recipe = Recipe::new(ings);
-    let best_goodness_recipe = basic_recipe.climb_goodness();
+const DAY: u8 = 15;
 
-    println!("Best recipe: {}", best_goodness_recipe);
+#[derive(StructOpt, Debug)]
+struct RunArgs {
+    /// input file
+    #[structopt(long, parse(from_os_str))]
+    input: Option<PathBuf>,
 
-    if let Some(five_hundred) = basic_recipe.exhaust_goodness_constrained(500) {
-        println!("Best recipe with 500 calories: {}", five_hundred);
-    } else {
-        println!("Couldn't find a recipe to match the constraint!");
+    /// skip part 1
+    #[structopt(long = "no-part1")]
+    no_part1: bool,
+
+    /// run part 2
+    #[structopt(long)]
+    part2: bool,
+}
+
+impl RunArgs {
+    fn input(&self) -> Result<PathBuf> {
+        match self.input {
+            None => {
+                let config = Config::load()?;
+                // this does nothing if the input file already exists, but
+                // simplifies the workflow after cloning the repo on a new computer
+                get_input(&config, DAY)?;
+                Ok(config.input_for(DAY))
+            }
+            Some(ref path) => Ok(path.clone()),
+        }
     }
+}
+
+fn main() -> Result<()> {
+    color_eyre::install()?;
+    let args = RunArgs::from_args();
+    let input_path = args.input()?;
+
+    if !args.no_part1 {
+        part1(&input_path)?;
+    }
+    if args.part2 {
+        part2(&input_path)?;
+    }
+    Ok(())
 }
