@@ -43,199 +43,200 @@
 //!
 //! What is the number of the Sue that got you the gift?
 
-use std::collections::HashMap;
+use aoc2015::parse;
+use std::path::Path;
 use std::str::FromStr;
+use thiserror::Error;
 
-use util::parse::Parser;
-
-#[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
-pub enum MfcsamItem {
-    Children,
-    Cats,
-    Samoyeds,
-    Pomeranians,
-    Akitas,
-    Vizslas,
-    Goldfish,
-    Trees,
-    Cars,
-    Perfumes,
-}
-use MfcsamItem::{
-    Akitas, Cars, Cats, Children, Goldfish, Perfumes, Pomeranians, Samoyeds, Trees, Vizslas,
+const RESULT: MfcsamQtys = MfcsamQtys {
+    children: Some(3),
+    cats: Some(7),
+    samoyeds: Some(2),
+    pomeranians: Some(3),
+    akitas: Some(0),
+    vizslas: Some(0),
+    goldfish: Some(5),
+    trees: Some(3),
+    cars: Some(2),
+    perfumes: Some(1),
 };
 
-fn get_mfcsam_item(item: &str) -> Option<MfcsamItem> {
-    let mut h = HashMap::new();
+#[derive(Debug, PartialEq, Eq, Default, Clone)]
+struct MfcsamQtys {
+    children: Option<u32>,
+    cats: Option<u32>,
+    samoyeds: Option<u32>,
+    pomeranians: Option<u32>,
+    akitas: Option<u32>,
+    vizslas: Option<u32>,
+    goldfish: Option<u32>,
+    trees: Option<u32>,
+    cars: Option<u32>,
+    perfumes: Option<u32>,
+}
 
-    h.insert("children", Children);
-    h.insert("children:", Children);
-    h.insert("cats", Cats);
-    h.insert("cats:", Cats);
-    h.insert("samoyeds", Samoyeds);
-    h.insert("samoyeds:", Samoyeds);
-    h.insert("pomeranians", Pomeranians);
-    h.insert("pomeranians:", Pomeranians);
-    h.insert("akitas", Akitas);
-    h.insert("akitas:", Akitas);
-    h.insert("vizslas", Vizslas);
-    h.insert("vizslas:", Vizslas);
-    h.insert("goldfish", Goldfish);
-    h.insert("goldfish:", Goldfish);
-    h.insert("trees", Trees);
-    h.insert("trees:", Trees);
-    h.insert("cars", Cars);
-    h.insert("cars:", Cars);
-    h.insert("perfumes", Perfumes);
-    h.insert("perfumes:", Perfumes);
+impl FromStr for MfcsamQtys {
+    type Err = Error;
 
-    if let Some(m) = h.get(item) {
-        Some(m.clone())
-    } else {
-        None
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut qtys = MfcsamQtys::default();
+
+        for item in s.split(',') {
+            let item = item.trim();
+
+            let err = || Error::MalformedItem(item.to_string());
+
+            let mut kvs = item.split(':');
+            let name = kvs.next().ok_or_else(err)?;
+            let qty = kvs.next().ok_or_else(err)?.trim().parse::<u32>()?;
+            if kvs.next().is_some() {
+                return Err(err());
+            }
+
+            match name {
+                "children" => qtys.children = Some(qty),
+                "cats" => qtys.cats = Some(qty),
+                "samoyeds" => qtys.samoyeds = Some(qty),
+                "pomeranians" => qtys.pomeranians = Some(qty),
+                "akitas" => qtys.akitas = Some(qty),
+                "vizslas" => qtys.vizslas = Some(qty),
+                "goldfish" => qtys.goldfish = Some(qty),
+                "trees" => qtys.trees = Some(qty),
+                "cars" => qtys.cars = Some(qty),
+                "perfumes" => qtys.perfumes = Some(qty),
+                _ => {
+                    // just ignore extraneous possessions
+                }
+            }
+        }
+
+        Ok(qtys)
     }
 }
 
-pub type MfcsamQtys = HashMap<MfcsamItem, u8>;
+impl MfcsamQtys {
+    /// `true` when all items specified in `other` are specified here and quantities match.
+    ///
+    /// I.e. can return `true` if `self.cats == None` and `other.cats == Some(3)`,
+    /// but will always return `false` if `self.cats == Some(3)` and `other.cats = None`/
+    fn matches(&self, other: &MfcsamQtys) -> bool {
+        self.children
+            .map(|x| other.children == Some(x))
+            .unwrap_or(true)
+            && self.cats.map(|x| other.cats == Some(x)).unwrap_or(true)
+            && self
+                .samoyeds
+                .map(|x| other.samoyeds == Some(x))
+                .unwrap_or(true)
+            && self
+                .pomeranians
+                .map(|x| other.pomeranians == Some(x))
+                .unwrap_or(true)
+            && self.akitas.map(|x| other.akitas == Some(x)).unwrap_or(true)
+            && self
+                .vizslas
+                .map(|x| other.vizslas == Some(x))
+                .unwrap_or(true)
+            && self
+                .goldfish
+                .map(|x| other.goldfish == Some(x))
+                .unwrap_or(true)
+            && self.trees.map(|x| other.trees == Some(x)).unwrap_or(true)
+            && self.cars.map(|x| other.cars == Some(x)).unwrap_or(true)
+            && self
+                .perfumes
+                .map(|x| other.perfumes == Some(x))
+                .unwrap_or(true)
+    }
 
-pub fn mfcsam_result() -> MfcsamQtys {
-    let mut h = HashMap::new();
-    h.insert(Children, 3);
-    h.insert(Cats, 7);
-    h.insert(Samoyeds, 2);
-    h.insert(Pomeranians, 3);
-    h.insert(Akitas, 0);
-    h.insert(Vizslas, 0);
-    h.insert(Goldfish, 5);
-    h.insert(Trees, 3);
-    h.insert(Cars, 2);
-    h.insert(Perfumes, 1);
-    h
+    /// Same semantics as [`Mfcsamqtys::matches`], but with the following adaptations:
+    ///
+    /// - `self.cats > other.cats`
+    /// - `self.trees > other.trees`
+    /// - `self.pomeranians > other.pomeranians`
+    /// - `self.goldfish < other.goldfish`
+    fn matches_retro(&self, other: &MfcsamQtys) -> bool {
+        self.children
+            .map(|x| other.children == Some(x))
+            .unwrap_or(true)
+            && self.cats.map(|x| other.cats < Some(x)).unwrap_or(true)
+            && self
+                .samoyeds
+                .map(|x| other.samoyeds == Some(x))
+                .unwrap_or(true)
+            && self
+                .pomeranians
+                .map(|x| other.pomeranians > Some(x))
+                .unwrap_or(true)
+            && self.akitas.map(|x| other.akitas == Some(x)).unwrap_or(true)
+            && self
+                .vizslas
+                .map(|x| other.vizslas == Some(x))
+                .unwrap_or(true)
+            && self
+                .goldfish
+                .map(|x| other.goldfish > Some(x))
+                .unwrap_or(true)
+            && self.trees.map(|x| other.trees < Some(x)).unwrap_or(true)
+            && self.cars.map(|x| other.cars == Some(x)).unwrap_or(true)
+            && self
+                .perfumes
+                .map(|x| other.perfumes == Some(x))
+                .unwrap_or(true)
+    }
 }
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, parse_display::FromStr)]
+#[display("Sue {num}: {possessions}")]
 pub struct Sue {
-    pub num: u16,
-    pub possessions: MfcsamQtys,
+    num: u32,
+    possessions: MfcsamQtys,
 }
 
 impl Sue {
-    pub fn parse(line: &str) -> Option<Sue> {
-        let line = line.trim();
-        if line.is_empty() {
-            return None;
-        }
-
-        let parser = Parser::default()
-            .clear_trailing_punctuation(true)
-            .require_at_least(Some(2))
-            .fixed_tokens({
-                let mut h = HashMap::new();
-                h.insert(0, "sue".to_string());
-                h
-            });
-
-        match parser.parse(line) {
-            Err(_) => None,
-            Ok(v) => {
-                let ref num = v.tokens[0];
-                let num = u16::from_str(num);
-                if num.is_err() {
-                    return None;
-                }
-                let num = num.unwrap();
-
-                let mut sue = Sue {
-                    num: num,
-                    possessions: HashMap::new(),
-                };
-                for chunk in v.tokens.iter().skip(1).collect::<Vec<_>>().chunks(2) {
-                    if chunk.len() != 2 {
-                        return None;
-                    }
-
-                    if let Some(mfc) = get_mfcsam_item(chunk[0]) {
-                        if let Ok(qty) = u8::from_str(chunk[1]) {
-                            sue.possessions.insert(mfc, qty);
-                        }
-                    }
-                }
-                Some(sue)
-            }
-        }
+    fn can_be(&self, qtys: &MfcsamQtys) -> bool {
+        self.possessions.matches(qtys)
     }
 
-    pub fn can_be(&self, qtys: &MfcsamQtys) -> bool {
-        for (k, v) in &self.possessions {
-            if qtys.contains_key(k) && qtys.get(k).unwrap() != v {
-                return false;
-            }
-        }
-        true
-    }
-
-    pub fn can_be_retro(&self, qtys: &MfcsamQtys) -> bool {
-        for (k, v) in &self.possessions {
-            if let Some(detected) = qtys.get(k) {
-                match k {
-                    &Cats => {
-                        if !(v > detected) {
-                            return false;
-                        }
-                    }
-                    &Trees => {
-                        if !(v > detected) {
-                            return false;
-                        }
-                    }
-                    &Pomeranians => {
-                        if !(v < detected) {
-                            return false;
-                        }
-                    }
-                    &Goldfish => {
-                        if !(v < detected) {
-                            return false;
-                        }
-                    }
-                    _ => {
-                        if v != detected {
-                            return false;
-                        }
-                    }
-                }
-            }
-        }
-        true
+    fn can_be_retro(&self, qtys: &MfcsamQtys) -> bool {
+        self.possessions.matches_retro(qtys)
     }
 }
 
-pub fn check_sues(items: &MfcsamQtys, lines: &str) -> Vec<Sue> {
-    let mut ret = Vec::new();
-
-    let lines = lines.split('\n');
-    for line in lines {
-        if let Some(sue) = Sue::parse(line) {
-            if sue.can_be(&items) {
-                ret.push(sue);
-            }
+pub fn part1(input: &Path) -> Result<(), Error> {
+    let mut found_sue = false;
+    for sue in parse::<Sue>(input)? {
+        if sue.can_be(&RESULT) {
+            println!("matching sue: {}", sue.num);
+            found_sue = true;
         }
     }
-
-    ret
+    if !found_sue {
+        println!("no matching sue found");
+    }
+    Ok(())
 }
 
-pub fn check_sues_retro(items: &MfcsamQtys, lines: &str) -> Vec<Sue> {
-    let mut ret = Vec::new();
-
-    let lines = lines.split('\n');
-    for line in lines {
-        if let Some(sue) = Sue::parse(line) {
-            if sue.can_be_retro(&items) {
-                ret.push(sue);
-            }
+pub fn part2(input: &Path) -> Result<(), Error> {
+    let mut found_sue = false;
+    for sue in parse::<Sue>(input)? {
+        if sue.can_be_retro(&RESULT) {
+            println!("matching sue (retro): {}", sue.num);
+            found_sue = true;
         }
     }
+    if !found_sue {
+        println!("no matching sue (retro) found");
+    }
+    Ok(())
+}
 
-    ret
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+    #[error("malformed item: \"{0}\"")]
+    MalformedItem(String),
+    #[error(transparent)]
+    ParseInt(#[from] std::num::ParseIntError),
 }
