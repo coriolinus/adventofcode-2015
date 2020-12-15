@@ -1,34 +1,52 @@
-use std::str::FromStr;
+use aoc2015::{config::Config, website::get_input};
+use day17::{part1, part2};
 
-use util::get_multiline_input;
+use color_eyre::eyre::Result;
+use std::path::PathBuf;
+use structopt::StructOpt;
 
-use day17::EggnogFiller;
+const DAY: u8 = 17;
 
-const EGGNOG: u8 = 150;
+#[derive(StructOpt, Debug)]
+struct RunArgs {
+    /// input file
+    #[structopt(long, parse(from_os_str))]
+    input: Option<PathBuf>,
 
-fn main() {
-    let lines = get_multiline_input("Container size, one container per line, EOF to end:").unwrap();
-    let mut containers = Vec::new();
-    for line in lines.split('\n') {
-        let line = line.trim();
-        if line.is_empty() {
-            continue;
-        }
+    /// skip part 1
+    #[structopt(long = "no-part1")]
+    no_part1: bool,
 
-        if let Ok(container) = u8::from_str(line) {
-            containers.push(container);
+    /// run part 2
+    #[structopt(long)]
+    part2: bool,
+}
+
+impl RunArgs {
+    fn input(&self) -> Result<PathBuf> {
+        match self.input {
+            None => {
+                let config = Config::load()?;
+                // this does nothing if the input file already exists, but
+                // simplifies the workflow after cloning the repo on a new computer
+                get_input(&config, DAY)?;
+                Ok(config.input_for(DAY))
+            }
+            Some(ref path) => Ok(path.clone()),
         }
     }
+}
 
-    let filler = EggnogFiller::new(EGGNOG, containers);
-    let combo_count = filler.clone().count();
-    println!("Possible combinations: {}", combo_count);
+fn main() -> Result<()> {
+    color_eyre::install()?;
+    let args = RunArgs::from_args();
+    let input_path = args.input()?;
 
-    let min_ctrs = filler.clone().map(|c| c.len()).min().unwrap();
-    let ways_min = filler.clone().filter(|c| c.len() == min_ctrs).count();
-
-    println!(
-        "..with {} ways to use only {} containers.",
-        ways_min, min_ctrs
-    );
+    if !args.no_part1 {
+        part1(&input_path)?;
+    }
+    if args.part2 {
+        part2(&input_path)?;
+    }
+    Ok(())
 }

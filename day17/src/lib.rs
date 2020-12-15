@@ -15,7 +15,13 @@
 //! Filling all containers entirely, how many different combinations of containers can exactly fit
 //! all `150` liters of eggnog?
 
+use aoc2015::parse;
+use std::path::Path;
+use thiserror::Error;
+
 pub type Container = u8;
+
+pub const EGGNOG_QTY: u8 = 150;
 
 /// Recursively generates permutations of `Container`s whose capacities sum to a given volume.
 #[derive(PartialEq, Eq, Clone)]
@@ -120,6 +126,33 @@ impl Iterator for EggnogFiller {
         }
         None
     }
+}
+
+pub fn part1(input: &Path) -> Result<(), Error> {
+    let containers: Vec<Container> = parse(input)?.collect();
+    let filler = EggnogFiller::new(EGGNOG_QTY, containers);
+    let combo_count = filler.clone().count();
+    println!("Possible combinations: {}", combo_count);
+    Ok(())
+}
+
+pub fn part2(input: &Path) -> Result<(), Error> {
+    let containers: Vec<Container> = parse(input)?.collect();
+    let filler = EggnogFiller::new(EGGNOG_QTY, containers);
+    let min_ctrs = filler.clone().map(|c| c.len()).min().unwrap();
+    let ways_min = filler.clone().filter(|c| c.len() == min_ctrs).count();
+
+    println!(
+        "..with {} ways to use only {} containers.",
+        ways_min, min_ctrs
+    );
+    Ok(())
+}
+
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
 }
 
 #[cfg(test)]
