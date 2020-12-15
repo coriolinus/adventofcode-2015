@@ -55,7 +55,7 @@ fn main() -> Result<()> {
     }
     #[cfg(feature = "animate")]
     if let Some(output_path) = args.create_animation {
-        day18::animate(&input_path, &output_path)?;
+        day18::animate::animate(&input_path, &output_path)?;
     }
     Ok(())
 }
