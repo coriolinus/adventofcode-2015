@@ -76,220 +76,187 @@
 //!
 //! In your grid of 100x100 lights, given your initial configuration, how many lights are on after 100 steps?
 
-pub struct LightGrid {
-    lights: Vec<Vec<bool>>,
+use aoc2015::geometry::{tile::DisplayWidth, Map};
+use std::{convert::TryFrom, path::Path};
+use thiserror::Error;
+
+pub const ITERATIONS: u8 = 100;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, parse_display::FromStr, parse_display::Display)]
+pub enum Light {
+    #[display("#")]
+    On,
+    #[display(".")]
+    Off,
 }
 
-/// A grid of lights which animates according to rules inspired by Conway's Game of Life
-///
-/// Internally, this is stored as a `Vec<Vec<bool>>`. Note that addressing is
-/// `.lights[y][x]`.
-///
-/// This implementation is relatively good for densely-populated fixed-edge-length grids, but
-/// for sparse or infinite-size grids, a HashMap-based implementation would be better.
-impl LightGrid {
-    pub fn blank(edge: usize) -> LightGrid {
-        LightGrid {
-            lights: vec![vec![false; edge]; edge],
-        }
+impl DisplayWidth for Light {
+    const DISPLAY_WIDTH: usize = 1;
+}
+
+impl Light {
+    #[inline(always)]
+    fn is_on(&self) -> bool {
+        *self == Light::On
     }
+}
 
-    pub fn parse_lines(lines: &str) -> Option<LightGrid> {
-        let spl = lines.trim().split('\n');
-        let edge = spl.clone().count();
+pub type Grid = Map<Light>;
 
-        let mut ret = Vec::with_capacity(edge);
+pub fn next_state(grid: &Grid) -> Grid {
+    let mut successor = grid.clone();
 
-        for line in spl {
-            let line = line.trim();
-            if line.len() != edge {
-                return None;
+    successor.for_each_point_mut(|light, point| {
+        let adjacent_on = grid
+            .adjacencies(point)
+            .filter(|&adj| grid[adj].is_on())
+            .count();
+
+        match (light.is_on(), adjacent_on) {
+            (true, n) if (2..=3).contains(&n) => {
+                // a light which is on stays on when 2 or 3 neighbors are on
             }
-
-            let mut rl = Vec::with_capacity(edge);
-            for ch in line.chars() {
-                match ch {
-                    '.' => rl.push(false),
-                    '#' => rl.push(true),
-                    _ => return None,
-                }
+            (true, _) => {
+                // ...and turns off otherwise
+                *light = Light::Off
             }
-            ret.push(rl);
-        }
-        Some(LightGrid { lights: ret })
-    }
-
-    pub fn parse_lines_stuck(lines: &str) -> Option<LightGrid> {
-        if let Some(mut grid) = LightGrid::parse_lines(lines) {
-            let end = grid.lights.len() - 1;
-            for (x, y) in vec![(0, 0), (0, end), (end, 0), (end, end)] {
-                grid.lights[y][x] = true;
+            (false, 3) => {
+                // a light which is off turns on if exactly 3 neighbors are on
+                *light = Light::On;
             }
-            Some(grid)
-        } else {
-            None
-        }
-    }
-
-    // Returns the count of lights adjacent to the given `x, y` coordinate which are currently
-    // turned on.
-    //
-    // If `x` or `y` is greater than `self.lights.len() - 1`, panic. That coordinate is invalid.
-    fn count_adjacent_on(&self, x: usize, y: usize) -> u8 {
-        let last = self.lights.len() - 1;
-
-        if x > last || y > last {
-            panic!(
-                "Invalid coordinate ({}, {}) doesn't fit in edge length {}!",
-                x,
-                y,
-                self.lights.len()
-            );
-        }
-
-        let mut xs = vec![x];
-        if x != 0 {
-            xs.push(x - 1);
-        }
-        if x != last {
-            xs.push(x + 1);
-        }
-
-        let mut ys = vec![y];
-        if y != 0 {
-            ys.push(y - 1);
-        }
-        if y != last {
-            ys.push(y + 1);
-        }
-
-        let mut ret = 0;
-        for cx in &xs {
-            for cy in &ys {
-                if !((*cx == x) && (*cy == y)) {
-                    if self.lights[*cy][*cx] {
-                        ret += 1;
-                    }
-                }
+            (false, _) => {
+                // ...and stays off otherwise
             }
         }
+    });
 
-        ret
+    successor
+}
+
+pub fn next_state_stuck(grid: &Grid) -> Grid {
+    let mut grid = next_state(grid);
+
+    for corner in [
+        grid.top_left(),
+        grid.top_right(),
+        grid.bottom_left(),
+        grid.bottom_right(),
+    ]
+    .iter()
+    {
+        grid[*corner] = Light::On;
     }
 
-    pub fn next_state(&self) -> LightGrid {
-        let mut ret = LightGrid::blank(self.lights.len());
+    grid
+}
 
-        for x in 0..self.lights.len() {
-            for y in 0..self.lights.len() {
-                ret.lights[y][x] = if self.lights[y][x] {
-                    // A light which is on stays on when 2 or 3 neighbors are on, and turns off otherwise.
-                    match self.count_adjacent_on(x, y) {
-                        2...3 => true,
-                        _ => false,
-                    }
-                } else {
-                    // A light which is off turns on if exactly 3 neighbors are on, and stays off otherwise.
-                    match self.count_adjacent_on(x, y) {
-                        3 => true,
-                        _ => false,
-                    }
-                };
-            }
-        }
+pub fn count_on(grid: &Grid) -> usize {
+    grid.iter().filter(|light| light.is_on()).count()
+}
 
-        ret
+// fn main() {
+//     let lines = get_multiline_input("Initial Light State:").unwrap();
+//     let grid = LightGrid::parse_lines(&lines);
+//     if let Some(mut grid) = grid {
+//         for _ in 0..ITERATIONS {
+//             grid = next_state(&grid);
+//         }
+//         println!(
+//             "{} lights on after {} iterations",
+//             count_on(&grid),
+//             ITERATIONS
+//         );
+
+//         grid = LightGrid::parse_lines_stuck(&lines).unwrap();
+//         for _ in 0..ITERATIONS {
+//             grid = grid.next_state_stuck();
+//         }
+//         println!(
+//             "When stuck, {} lights on after {} iterations",
+//             count_on(&grid),
+//             ITERATIONS
+//         );
+//     } else {
+//         println!("Couldn't parse the input lines as a LightGrid!")
+//     }
+// }
+
+pub fn part1(input: &Path) -> Result<(), Error> {
+    let mut grid = Grid::try_from(input)?;
+    for _ in 0..ITERATIONS {
+        grid = next_state(&grid);
     }
+    let on = count_on(&grid);
+    println!("{:5} lights on after {} iterations", on, ITERATIONS);
+    Ok(())
+}
 
-    pub fn next_state_stuck(&self) -> LightGrid {
-        let mut grid = self.next_state();
-
-        let end = grid.lights.len() - 1;
-        for (x, y) in vec![(0, 0), (0, end), (end, 0), (end, end)] {
-            grid.lights[y][x] = true;
-        }
-
-        grid
+pub fn part2(input: &Path) -> Result<(), Error> {
+    let mut grid = Grid::try_from(input)?;
+    for _ in 0..ITERATIONS {
+        grid = next_state_stuck(&grid);
     }
+    let on = count_on(&grid);
+    println!(
+        "{:5} lights on after {} iterations (part 2)",
+        on, ITERATIONS
+    );
+    Ok(())
+}
 
-    pub fn count_on(&self) -> u16 {
-        let mut ret = 0;
-        for x in 0..self.lights.len() {
-            for y in 0..self.lights.len() {
-                if self.lights[y][x] {
-                    ret += 1;
-                }
-            }
-        }
-        ret
-    }
-
-    pub fn to_string(&self) -> String {
-        let mut ret = String::new();
-        for y in 0..self.lights.len() {
-            for x in 0..self.lights.len() {
-                ret.push_str(if self.lights[y][x] { "#" } else { "." });
-            }
-            ret.push_str("\n");
-        }
-        ret
-    }
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn get_example() -> LightGrid {
-        let lines = [".#.#.#", "...##.", "#....#", "..#...", "#.#..#", "####.."];
-        let mut ret = String::new();
-        for line in lines.iter() {
-            ret.push_str(line);
-            ret.push_str("\n");
-        }
-        LightGrid::parse_lines(&ret).unwrap()
+    const EXAMPLE: &str = "
+.#.#.#
+...##.
+#....#
+..#...
+#.#..#
+####..
+";
+
+    fn get_example() -> Grid {
+        Grid::try_from(EXAMPLE.trim()).unwrap()
     }
 
     #[test]
     fn test_example() {
         let mut grid = get_example();
-        assert_eq!(grid.count_on(), 15);
+        assert_eq!(count_on(&grid), 15);
         println!("");
         println!("Initial State:");
         println!("{}", grid.to_string());
 
         // 1st step
-        grid = grid.next_state();
+        grid = next_state(&grid);
         println!("After 1st step:");
         println!("{}", grid.to_string());
-        assert_eq!(grid.count_on(), 11);
+        assert_eq!(count_on(&grid), 11);
 
         // 2nd step
-        grid = grid.next_state();
+        grid = next_state(&grid);
         println!("After 2nd step:");
         println!("{}", grid.to_string());
-        assert_eq!(grid.count_on(), 8);
+        assert_eq!(count_on(&grid), 8);
 
         // 3rd step
-        grid = grid.next_state();
+        grid = next_state(&grid);
         println!("After 3rd step:");
         println!("{}", grid.to_string());
-        assert_eq!(grid.count_on(), 4);
+        assert_eq!(count_on(&grid), 4);
 
         // 4th step
-        grid = grid.next_state();
+        grid = next_state(&grid);
         println!("After 4th step:");
         println!("{}", grid.to_string());
-        assert_eq!(grid.count_on(), 4);
-    }
-
-    #[test]
-    fn test_ex_first_row_count() {
-        let example = get_example();
-        let expected: Vec<u8> = vec![1, 0, 3, 2, 4, 1];
-        let found = (0..6)
-            .map(|x| example.count_adjacent_on(x, 0))
-            .collect::<Vec<_>>();
-        assert_eq!(found, expected);
+        assert_eq!(count_on(&grid), 4);
     }
 }
