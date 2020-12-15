@@ -5,4 +5,13 @@ authors = ["coriolinus <coriolinus@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-util = { path = "../util"}
+aoc2015 = { path = ".." }
+color-eyre = "0.5.10"
+gif = { version = "0.11.1", optional = true }
+parse-display = "0.4.0"
+rand = { version = "0.7.3", optional = true }
+structopt = "0.3.21"
+thiserror = "1.0.22"
+
+[features]
+animate = [ "gif", "rand" ]
