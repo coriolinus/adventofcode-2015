@@ -20,6 +20,11 @@ struct RunArgs {
     /// run part 2
     #[structopt(long)]
     part2: bool,
+
+    /// create an animation of the lights at the specified path
+    #[structopt(long, parse(from_os_str))]
+    #[cfg(feature = "animate")]
+    create_animation: Option<PathBuf>,
 }
 
 impl RunArgs {
@@ -47,6 +52,10 @@ fn main() -> Result<()> {
     }
     if args.part2 {
         part2(&input_path)?;
+    }
+    #[cfg(feature = "animate")]
+    if let Some(output_path) = args.create_animation {
+        day18::animate(&input_path, &output_path)?;
     }
     Ok(())
 }

@@ -80,7 +80,17 @@ use aoc2015::geometry::{tile::DisplayWidth, Map};
 use std::{convert::TryFrom, path::Path};
 use thiserror::Error;
 
+#[cfg(feature = "animate")]
+use aoc2015::geometry::Point;
+#[cfg(feature = "animate")]
+use rand::Rng as _;
+#[cfg(feature = "animate")]
+use std::time::Duration;
+
 pub const ITERATIONS: u8 = 100;
+
+#[cfg(feature = "animate")]
+pub const FRAME_DURATION: Duration = Duration::from_millis(200);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, parse_display::FromStr, parse_display::Display)]
 pub enum Light {
@@ -204,10 +214,127 @@ pub fn part2(input: &Path) -> Result<(), Error> {
     Ok(())
 }
 
+#[cfg(feature = "animate")]
+fn set_lit_point(position: Point, subpixels: &mut [u8], width: usize) {
+    // each lit point illuminates 5 pixels in the shape of a cross, plus
+    // up to 4 more, chosen randomly, which form a sparkling effect
+
+    let mut rng = rand::thread_rng();
+
+    const WARM_WHITE: [u8; 3] = [253, 244, 220];
+
+    let x = || position.x as usize;
+    let y = || position.y as usize;
+
+    // the linear index of a position has the following components:
+    //
+    // - 2: offset from left edge
+    // - 2 * width: offset from top
+    // - x(): x component of position
+    // - y() * width: y component of position
+    // - offset.x as usize: x offset
+    // - (offset.y as usize) * width: y offset
+    //
+    // It is multiplied by 3, because that is how many bytes each pixel takes
+    //
+    // Note: this requires that the offset be in the positive quadrant
+    let linear_idx = |offset: Point| {
+        (2 + (2 * width)
+            + x()
+            + (y() * width)
+            + (offset.x as usize)
+            + ((offset.y as usize) * width))
+            * 3
+    };
+
+    // central cross shape
+    for offset in [
+        Point::new(1, 0),
+        Point::new(0, 1),
+        Point::new(1, 1),
+        Point::new(2, 1),
+        Point::new(1, 2),
+    ]
+    .iter()
+    {
+        let idx = linear_idx(*offset);
+        subpixels[idx..idx + 3].copy_from_slice(&WARM_WHITE);
+    }
+
+    // corners
+    for offset in [
+        Point::new(0, 0),
+        Point::new(0, 2),
+        Point::new(2, 0),
+        Point::new(2, 2),
+    ]
+    .iter()
+    {
+        if rng.gen::<bool>() {
+            let idx = linear_idx(*offset);
+            subpixels[idx..idx + 3].copy_from_slice(&WARM_WHITE);
+        }
+    }
+}
+
+#[cfg(feature = "animate")]
+fn create_frame_from(grid: &Grid) -> gif::Frame {
+    // 16 pixels per light: 3x3 with a 1px margin
+    // 3 subpixels per pixel; 1 each for r, g, b
+    let width = grid.width();
+    let mut subpixels = vec![0; ((width + 1) * (grid.height() + 1) * 4 * 4) * 3];
+    grid.for_each_point(|light, position| {
+        if light.is_on() {
+            set_lit_point(position, &mut subpixels, width);
+        }
+    });
+    gif::Frame::from_rgb(width as u16, grid.height() as u16, &subpixels)
+}
+
+#[cfg(feature = "animate")]
+pub fn animate(input: &Path, output: &Path) -> Result<(), Error> {
+    let mut grid = Grid::try_from(input)?;
+    let output = std::fs::File::create(output)?;
+    let output = std::io::BufWriter::new(output);
+    let mut output = gif::Encoder::new(output, grid.width() as u16, grid.height() as u16, &[])?;
+
+    // configure
+    // note: delay is in hundredths of a second
+    output.write_extension(gif::ExtensionData::new_control_ext(
+        (FRAME_DURATION.as_millis() / 10) as u16,
+        gif::DisposalMethod::Any,
+        false,
+        None,
+    ))?;
+
+    // repeat the initial frame 3 times
+    let frame = create_frame_from(&grid);
+    for _ in 0..3 {
+        output.write_frame(&frame)?;
+    }
+
+    // animate
+    for _ in 0..ITERATIONS {
+        grid = next_state(&grid);
+        output.write_frame(&create_frame_from(&grid))?;
+    }
+
+    // repeate the final frame 5 more times
+    let frame = create_frame_from(&grid);
+    for _ in 0..5 {
+        output.write_frame(&frame)?;
+    }
+
+    Ok(())
+}
+
 #[derive(Debug, Error)]
 pub enum Error {
     #[error(transparent)]
     Io(#[from] std::io::Error),
+    #[cfg(feature = "animate")]
+    #[error("encoding gif")]
+    Gif(#[from] gif::EncodingError),
 }
 
 #[cfg(test)]
