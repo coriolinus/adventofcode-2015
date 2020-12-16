@@ -57,24 +57,6 @@ struct Replacement {
     to: String,
 }
 
-impl Replacement {
-    fn from(&self, reverse: bool) -> &str {
-        if reverse {
-            &self.to
-        } else {
-            &self.from
-        }
-    }
-
-    fn to(&self, reverse: bool) -> &str {
-        if reverse {
-            &self.from
-        } else {
-            &self.to
-        }
-    }
-}
-
 #[derive(Debug, Clone, Default)]
 struct Input {
     replacements: Vec<Replacement>,
@@ -101,14 +83,6 @@ impl FromStr for Input {
             }
         }
 
-        // for forward production, the ordering of the list of replacements is irrelevant.
-        // for reverse searching, we want to greediliy reduce it as fast as possible, so let's
-        // reverse-sort by length of `to`
-        input
-            .replacements
-            .sort_unstable_by_key(|replacement| replacement.to.len());
-        input.replacements.reverse();
-
         Ok(input)
     }
 }
@@ -124,24 +98,16 @@ impl TryFrom<&Path> for Input {
 
 impl Input {
     fn replace<'a>(&'a self, initial: &'a str) -> impl 'a + Iterator<Item = String> {
-        self.replace_inner(initial, false)
-    }
-
-    fn replace_inner<'a>(
-        &'a self,
-        initial: &'a str,
-        reverse: bool,
-    ) -> impl 'a + Iterator<Item = String> {
         (0..initial.len())
             .filter(move |&index| initial.is_char_boundary(index))
             .map(move |index| {
                 let (prefix, suffix) = initial.split_at(index);
                 self.replacements
                     .iter()
-                    .filter(move |replacement| suffix.starts_with(&replacement.from(reverse)))
+                    .filter(move |replacement| suffix.starts_with(&replacement.from))
                     .map(move |replacement| {
-                        let (_, suffix) = suffix.split_at(replacement.from(reverse).len());
-                        format!("{}{}{}", prefix, replacement.to(reverse), suffix)
+                        let (_, suffix) = suffix.split_at(replacement.from.len());
+                        format!("{}{}{}", prefix, replacement.to, suffix)
                     })
             })
             .flatten()
@@ -151,24 +117,24 @@ impl Input {
         self.replace(&self.medicine).collect::<HashSet<_>>().len()
     }
 
-    // working forwards blows up the machine. Let's work the problem backwards.
     fn count_fabrication_steps(&self) -> Option<usize> {
         let mut visited = HashSet::new();
         let mut queue = VecDeque::new();
-        queue.push_back((0, self.medicine.clone()));
+        queue.push_back((0, "e".to_string()));
 
         while let Some((prior_steps, product)) = queue.pop_front() {
             if !visited.insert(product.clone()) {
                 // `insert` returns false if the set already contained the item
                 continue;
             }
-            if product == "e" {
+            if product == self.medicine {
                 return Some(prior_steps);
             }
-
             queue.extend(
-                self.replace_inner(&product, true)
-                    .filter(|product| !visited.contains(product))
+                self.replace(&product)
+                    .filter(|product| {
+                        product.len() <= self.medicine.len() && !visited.contains(product)
+                    })
                     .map(|product| (prior_steps + 1, product)),
             );
         }
