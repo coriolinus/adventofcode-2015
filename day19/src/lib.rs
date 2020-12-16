@@ -42,12 +42,7 @@
 //! molecule for which you need to calibrate the machine. How many distinct molecules can be
 //! created after all the different ways you can do one replacement on the medicine molecule?
 
-use std::{
-    collections::{HashSet, VecDeque},
-    convert::TryFrom,
-    path::Path,
-    str::FromStr,
-};
+use std::{collections::HashSet, convert::TryFrom, path::Path, str::FromStr};
 use thiserror::Error;
 
 #[derive(Debug, Clone, PartialEq, Eq, parse_display::FromStr, parse_display::Display)]
@@ -117,29 +112,27 @@ impl Input {
         self.replace(&self.medicine).collect::<HashSet<_>>().len()
     }
 
-    fn count_fabrication_steps(&self) -> Option<usize> {
-        let mut visited = HashSet::new();
-        let mut queue = VecDeque::new();
-        queue.push_back((0, "e".to_string()));
+    fn count_fabrication_steps(&self) -> usize {
+        // depends on input analysis from `reddit.com/u/CdiTheKing`:
+        // https://www.reddit.com/r/adventofcode/comments/3xflz8/day_19_solutions/cy4h7ji/
+        const RN: &str = "Rn"; // (
+        const AR: &str = "Ar"; // )
+        const Y: &str = "Y"; // ,
 
-        while let Some((prior_steps, product)) = queue.pop_front() {
-            if !visited.insert(product.clone()) {
-                // `insert` returns false if the set already contained the item
-                continue;
-            }
-            if product == self.medicine {
-                return Some(prior_steps);
-            }
-            queue.extend(
-                self.replace(&product)
-                    .filter(|product| {
-                        product.len() <= self.medicine.len() && !visited.contains(product)
-                    })
-                    .map(|product| (prior_steps + 1, product)),
-            );
-        }
+        let count = |sym: &str| {
+            self.medicine
+                .as_bytes()
+                .windows(sym.as_bytes().len())
+                .filter(|&window| window == sym.as_bytes())
+                .count()
+        };
+        let n_symbols = self
+            .medicine
+            .chars()
+            .filter(|ch| ch.is_ascii_uppercase())
+            .count();
 
-        None
+        n_symbols - count(RN) - count(AR) - (2 * count(Y)) - 1
     }
 }
 
@@ -172,7 +165,8 @@ mod test {
     fn part2(input: &str, expect: usize) {
         let input: Input = input.trim().parse().unwrap();
         let fabrication_steps = input.count_fabrication_steps();
-        assert_eq!(fabrication_steps, Some(expect));
+        // add 1 to the fabrication steps because we start with e
+        assert_eq!(fabrication_steps + 1, expect);
     }
 
     #[test]
