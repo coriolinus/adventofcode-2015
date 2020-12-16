@@ -1,51 +1,52 @@
-use util::get_multiline_input;
+use aoc2015::{config::Config, website::get_input};
+use day19::{part1, part2};
 
-use day19::countdistinct::CountDistinct;
-use day19::fabricate_steps_count;
-use day19::parse_replacements;
-use day19::TransformEnumerator;
+use color_eyre::eyre::Result;
+use std::path::PathBuf;
+use structopt::StructOpt;
 
-fn main() {
-    let lines = get_multiline_input(
-        "Transforms, each on a line. Two newlines. An input string. \
-                                     EOF.",
-    )
-    .unwrap();
+const DAY: u8 = 19;
 
-    let mut separator = lines.split({
-        match lines.find("\r\n") {
-            Some(_) => "\r\n\r\n",
-            None => "\n\n",
+#[derive(StructOpt, Debug)]
+struct RunArgs {
+    /// input file
+    #[structopt(long, parse(from_os_str))]
+    input: Option<PathBuf>,
+
+    /// skip part 1
+    #[structopt(long = "no-part1")]
+    no_part1: bool,
+
+    /// run part 2
+    #[structopt(long)]
+    part2: bool,
+}
+
+impl RunArgs {
+    fn input(&self) -> Result<PathBuf> {
+        match self.input {
+            None => {
+                let config = Config::load()?;
+                // this does nothing if the input file already exists, but
+                // simplifies the workflow after cloning the repo on a new computer
+                get_input(&config, DAY)?;
+                Ok(config.input_for(DAY))
+            }
+            Some(ref path) => Ok(path.clone()),
         }
-    });
-
-    let mut sn = separator.next();
-    if sn.is_none() {
-        println!("Couldn't split the input properly!");
-        return;
     }
-    let transform_lines = sn.unwrap().trim();
-    sn = separator.next();
-    if sn.is_none() {
-        println!("Couldn't find the input!");
-        println!("");
-        println!("Lines so far: {:?}", transform_lines);
-        return;
-    }
-    let input = sn.unwrap().trim();
+}
 
-    if let Some(transforms) = parse_replacements(transform_lines) {
-        let te = TransformEnumerator::new(&transforms, input);
-        println!("Found {} distinct replacements", te.count_distinct());
+fn main() -> Result<()> {
+    color_eyre::install()?;
+    let args = RunArgs::from_args();
+    let input_path = args.input()?;
 
-        println!("");
-        println!("Searching for fabrication sequence...");
-        if let Some(fs) = fabricate_steps_count(&transforms, input) {
-            println!("... found fabrication sequence in {} steps", fs);
-        } else {
-            println!("... but couldn't find an assembly sequence.")
-        }
-    } else {
-        println!("Couldn't parse your transforms.")
+    if !args.no_part1 {
+        part1(&input_path)?;
     }
+    if args.part2 {
+        part2(&input_path)?;
+    }
+    Ok(())
 }

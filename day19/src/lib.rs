@@ -42,344 +42,166 @@
 //! molecule for which you need to calibrate the machine. How many distinct molecules can be
 //! created after all the different ways you can do one replacement on the medicine molecule?
 
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashSet, VecDeque},
+    convert::TryFrom,
+    path::Path,
+    str::FromStr,
+};
+use thiserror::Error;
 
-pub mod countdistinct;
-use countdistinct::CountDistinct;
-
-pub fn parse_replacements(lines: &str) -> Option<HashMap<String, Vec<String>>> {
-    let mut ret = HashMap::new();
-    for line in lines.split("\n") {
-        let line = line.trim();
-        if line.is_empty() {
-            continue;
-        }
-
-        if line.split("=>").count() != 2 {
-            // can't break this line in half
-            // who knows what craziness has occurred
-            // malformed input, anyway
-            return None;
-        }
-
-        let mut splitter = line.split("=>");
-        let from = splitter.next().unwrap().trim().to_string();
-        let to = splitter.next().unwrap().trim().to_string();
-
-        if ret.contains_key(&from) {
-            let mut val_vec: &mut Vec<String> = ret.get_mut(&from).unwrap();
-            val_vec.push(to);
-        } else {
-            ret.insert(from, vec![to]);
-        }
-    }
-    Some(ret)
-}
-
-/// An Iterator over simple transformations of a given string.
-///
-/// Given a String to transform from, a String to transform to, and an input, the ChemTransformer
-/// iterates over instances of matches of `from` in `input`. Each Item in this sequence is the
-/// input, with that particular match of `from` replaced with `to`.
-#[derive(PartialEq, Eq, Clone)]
-pub struct ChemTransformer {
+#[derive(Debug, Clone, PartialEq, Eq, parse_display::FromStr, parse_display::Display)]
+#[display("{from} => {to}")]
+struct Replacement {
     from: String,
     to: String,
-    chunks: Vec<String>,
-    repl_index: usize,
 }
 
-impl ChemTransformer {
-    pub fn new(trans_from: String, trans_to: String, replace_item: String) -> ChemTransformer {
-        ChemTransformer {
-            chunks: replace_item
-                .split(&trans_from)
-                .map(|s| s.to_string())
-                .collect::<Vec<String>>(),
-            from: trans_from,
-            to: trans_to,
-            repl_index: 0,
-        }
-    }
+#[derive(Debug, Clone, Default)]
+struct Input {
+    replacements: Vec<Replacement>,
+    medicine: String,
 }
 
-impl Iterator for ChemTransformer {
-    type Item = String;
+impl FromStr for Input {
+    type Err = Error;
 
-    fn next(&mut self) -> Option<String> {
-        // Situation: we have divided our input string into N chunks. Between each chunk, we insert
-        // either our `to` item or replace the `from` item it came from.
-        //
-        // Trivial example: from = "O", to = "HH", input = "HOH", chunks = ["H", "H"]
-        // We should return exactly one result, then None forevermore.
-        // Our result: "HHHH"
-        //
-        // Slightly non-trivial example:
-        // from = "H", to = "HO", input = "HOH"
-        // chunks = ["", "O", ""]
-        // Results: "HOOH", "HOHO"
-        if self.repl_index < self.chunks.len() - 1 {
-            self.repl_index += 1;
-        } else {
-            return None;
-        }
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut input = Input::default();
 
-        let mut ret = "".to_string();
-        for (i, chunk) in self.chunks.iter().enumerate() {
-            // don't emit filler before the first character
-            if i != 0 {
-                ret.push_str(if i == self.repl_index {
-                    &self.to
-                } else {
-                    &self.from
-                });
-            }
-            ret.push_str(&chunk);
-        }
-        Some(ret)
-    }
-}
+        let mut lines: Vec<_> = s.split('\n').collect();
+        lines.retain(|line| !line.is_empty());
 
-#[derive(Clone)]
-pub struct TransformEnumerator<'a> {
-    transform_iter: std::collections::hash_map::Iter<'a, String, Vec<String>>,
-    from: Option<String>,
-    tos: Option<std::slice::Iter<'a, String>>,
-    input: String,
-    ct: Option<ChemTransformer>,
-}
-
-impl<'a> TransformEnumerator<'a> {
-    pub fn new<'t>(
-        transforms: &'t HashMap<String, Vec<String>>,
-        input: &str,
-    ) -> TransformEnumerator<'t> {
-        TransformEnumerator {
-            from: None,
-            tos: None,
-            ct: None,
-            input: input.to_string(),
-            transform_iter: transforms.iter(),
-        }
-    }
-}
-
-impl<'a> Iterator for TransformEnumerator<'a> {
-    type Item = String;
-
-    fn next(&mut self) -> Option<String> {
-        // to begin: if we already have a working ChemTransformer, see if we can just return
-        // its next item. If it's run out, we can reset and keep going.
-        if self.ct.is_some() {
-            let next = self.ct.as_mut().unwrap().next();
-            if next.is_some() {
-                return next; // Some(str)
-            } else {
-                // self.ct = None;
-                // The above is an unnecessary assignment; we just continue and reset it anyway
-                // in the following lines.
+        if lines.len() > 0 {
+            input.medicine = lines[lines.len() - 1].to_string();
+            for line in &lines[..lines.len() - 1] {
+                input.replacements.push(
+                    line.trim()
+                        .parse()
+                        .map_err(|err| Error::Parse(err, line.trim().to_string()))?,
+                );
             }
         }
 
-        // Our ChemTransformer either ran out or never started, so let's get the materials with
-        // which to build the next one.
-        if self.from.is_none() {
-            let it_next = self.transform_iter.next();
-            if it_next.is_none() {
-                return None;
-            } else {
-                self.from = Some(it_next.unwrap().0.clone());
-                self.tos = Some(it_next.unwrap().1.iter());
-            }
-        }
-        // once we get here, `self.tos` is never None
-        let cur_to = self.tos.as_mut().unwrap().next();
-        if cur_to.is_none() {
-            // go to the next pair
-            self.from = None;
-            return self.next();
-        }
-        let cur_to = cur_to.unwrap();
-        self.ct = Some(ChemTransformer::new(
-            self.from.as_mut().unwrap().clone(),
-            cur_to.to_owned(),
-            self.input.clone(),
-        ));
-        return self.next();
+        Ok(input)
     }
 }
 
-impl<'a> CountDistinct for TransformEnumerator<'a> {}
+impl TryFrom<&Path> for Input {
+    type Error = Error;
 
-/// Generate a target string by applying a sequence of string transformations to the single
-/// character `e`. Allowable string transformations are given in the parameter `transforms`.
-/// Target to generate given in the parameter `target`.
-///
-/// Returns `Vec<String>`, containing all mutations on the way to the target
-pub fn fabricate(transforms: &HashMap<String, Vec<String>>, target: &str) -> Option<Vec<String>> {
-    // to_examine: a list of tuples:
-    // (next, history)
-    // where next is simply the next thing to try,
-    // and history is how we got there: a list of strings.
-    let mut to_examine: Vec<(String, Vec<String>)> = vec![("e".to_string(), Vec::new())];
-    let mut tried = HashSet::new();
-
-    while to_examine.len() > 0 {
-        let (ex, mut history) = to_examine.remove(0);
-        history.push(ex.clone());
-        if ex == target {
-            return Some(history);
-        }
-        if tried.insert(ex.clone()) {
-            // `.insert()` returns true if the value was not already present
-            for mutation in TransformEnumerator::new(transforms, &ex).filter(|m| !tried.contains(m))
-            {
-                to_examine.push((mutation, history.clone()));
-            }
-        }
+    fn try_from(path: &Path) -> Result<Self, Self::Error> {
+        let data = std::fs::read_to_string(path)?;
+        data.parse()
     }
-    None
 }
 
-/// Generate a target string by applying a sequence of string transformations to the single
-/// character `e`. Allowable string transformations are given in the parameter `transforms`.
-/// Target to generate given in the parameter `target`.
-///
-/// Returns `usize`, the number of steps after `e` to generate the target
-pub fn fabricate_steps_count(
-    transforms: &HashMap<String, Vec<String>>,
-    target: &str,
-) -> Option<usize> {
-    // to_examine: a list of tuples:
-    // (next, history)
-    // where next is simply the next thing to try,
-    // and history is how we got there: a list of strings.
-    let mut to_examine: Vec<(String, usize)> = vec![("e".to_string(), 0)];
-    let mut tried = HashSet::new();
-
-    while to_examine.len() > 0 {
-        let (ex, mut history) = to_examine.remove(0);
-        if ex == target {
-            return Some(history);
-        }
-        history += 1;
-        if tried.insert(ex.clone()) {
-            // `.insert()` returns true if the value was not already present
-            for mutation in TransformEnumerator::new(transforms, &ex).filter(|m| !tried.contains(m))
-            {
-                // this depends on the fact that no mutation shortens the overall length of the string.
-                // That may not always be the case! Be careful with that!
-                if mutation.len() <= target.len() {
-                    to_examine.push((mutation, history));
-                }
-            }
-        }
+impl Input {
+    fn replace<'a>(&'a self, initial: &'a str) -> impl 'a + Iterator<Item = String> {
+        (0..initial.len())
+            .filter(move |&index| initial.is_char_boundary(index))
+            .map(move |index| {
+                let (prefix, suffix) = initial.split_at(index);
+                self.replacements
+                    .iter()
+                    .filter(move |replacement| suffix.starts_with(&replacement.from))
+                    .map(move |replacement| {
+                        let (_, suffix) = suffix.split_at(replacement.from.len());
+                        format!("{}{}{}", prefix, replacement.to, suffix)
+                    })
+            })
+            .flatten()
     }
-    None
+
+    fn single_step_replacements(&self) -> usize {
+        self.replace(&self.medicine).collect::<HashSet<_>>().len()
+    }
+
+    fn count_fabrication_steps(&self) -> Option<usize> {
+        let mut visited = HashSet::new();
+        let mut queue = VecDeque::new();
+        queue.push_back((0, "e".to_string()));
+
+        while let Some((prior_steps, product)) = queue.pop_front() {
+            if !visited.insert(product.clone()) {
+                // `insert` returns false if the set already contained the item
+                continue;
+            }
+            if product == self.medicine {
+                return Some(prior_steps);
+            }
+            queue.extend(
+                self.replace(&product)
+                    .filter(|product| {
+                        product.len() <= self.medicine.len() && !visited.contains(product)
+                    })
+                    .map(|product| (prior_steps + 1, product)),
+            );
+        }
+
+        None
+    }
+}
+
+pub fn part1(input: &Path) -> Result<(), Error> {
+    let input = Input::try_from(input)?;
+    let ssr = input.single_step_replacements();
+    println!("single step replacements: {}", ssr);
+    Ok(())
+}
+
+pub fn part2(input: &Path) -> Result<(), Error> {
+    let input = Input::try_from(input)?;
+    let fabrication_steps = input.count_fabrication_steps();
+    println!("fabrication steps: {:?}", fabrication_steps);
+    Ok(())
+}
+
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+    #[error("parsing \"{1}\": {0}")]
+    Parse(#[source] parse_display::ParseError, String),
 }
 
 #[cfg(test)]
-mod tests {
-    use super::countdistinct::CountDistinct;
+mod test {
     use super::*;
-    use std::collections::HashMap;
 
-    #[test]
-    fn test_chem_transformer() {
-        let tests = vec![
-            ("O", "HH", "HOH", vec!["HHHH"]),
-            ("H", "HO", "HOH", vec!["HOOH", "HOHO"]),
-        ];
-
-        for (from, to, input, expect) in tests {
-            let from = from.to_string();
-            let to = to.to_string();
-            let input = input.to_string();
-            let expect = expect
-                .iter()
-                .map(|s| s.to_string())
-                .collect::<Vec<String>>();
-
-            let ct = ChemTransformer::new(from, to, input);
-            assert_eq!(ct.clone().count(), expect.len());
-            for (result, exp) in ct.zip(expect) {
-                assert_eq!(result, exp);
-            }
-        }
+    fn part2(input: &str, expect: usize) {
+        let input: Input = input.trim().parse().unwrap();
+        let fabrication_steps = input.count_fabrication_steps();
+        assert_eq!(fabrication_steps, Some(expect));
     }
 
     #[test]
-    fn test_transform_enumerator() {
-        let rep = get_default_replacements();
-        let input = "HOH";
-        let te = TransformEnumerator::new(&rep, input);
-
-        assert_eq!(te.clone().count(), 5);
-        assert_eq!(te.clone().count_distinct(), 4);
-    }
-
-    fn get_default_replacements() -> HashMap<String, Vec<String>> {
-        let mut lines = "".to_string();
-        lines.push_str("H => HO\n");
-        lines.push_str("H => OH\n");
-        lines.push_str("O => HH\n");
-
-        parse_replacements(&lines).unwrap()
+    fn part2_example_1() {
+        part2(
+            "
+e => H
+e => O
+H => HO
+H => OH
+O => HH
+HOH
+",
+            3,
+        )
     }
 
     #[test]
-    fn test_parse_replacements() {
-        let rep = get_default_replacements();
-
-        assert!(rep.get("H").is_some());
-        assert!(rep.get("O").is_some());
-
-        assert_eq!(rep.get("H").unwrap().len(), 2);
-        assert_eq!(rep.get("O").unwrap().len(), 1);
-    }
-
-    #[test]
-    fn test_part_2_examples() {
-        let mut lines = "".to_string();
-        lines.push_str("e => H\n");
-        lines.push_str("e => O\n");
-        lines.push_str("H => HO\n");
-        lines.push_str("H => OH\n");
-        lines.push_str("O => HH\n");
-
-        let transforms = parse_replacements(&lines).unwrap();
-
-        println!("Fabricating 'e'...");
-        assert_eq!(fabricate(&transforms, "e").unwrap(), vec!["e"]);
-
-        println!("Fabricating 'HOH'...");
-        assert_eq!(
-            fabricate(&transforms, "HOH").unwrap(),
-            vec!["e", "O", "HH", "HOH"]
-        );
-
-        println!("Fabricating 'HOHOHO'...");
-        assert_eq!(fabricate(&transforms, "HOHOHO").unwrap().len(), 7);
-    }
-
-    #[test]
-    fn test_fabricate_steps_count() {
-        let mut lines = "".to_string();
-        lines.push_str("e => H\n");
-        lines.push_str("e => O\n");
-        lines.push_str("H => HO\n");
-        lines.push_str("H => OH\n");
-        lines.push_str("O => HH\n");
-
-        let transforms = parse_replacements(&lines).unwrap();
-
-        println!("Fabricating 'e'...");
-        assert_eq!(fabricate_steps_count(&transforms, "e").unwrap(), 0);
-
-        println!("Fabricating 'HOH'...");
-        assert_eq!(fabricate_steps_count(&transforms, "HOH").unwrap(), 3);
-
-        println!("Fabricating 'HOHOHO'...");
-        assert_eq!(fabricate_steps_count(&transforms, "HOHOHO").unwrap(), 6);
+    fn part2_example_2() {
+        part2(
+            "
+e => H
+e => O
+H => HO
+H => OH
+O => HH
+HOHOHO
+",
+            6,
+        )
     }
 }
