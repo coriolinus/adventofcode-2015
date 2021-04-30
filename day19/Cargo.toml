@@ -10,4 +10,3 @@ color-eyre = "0.5.10"
 parse-display = "0.4.0"
 structopt = "0.3.21"
 thiserror = "1.0.22"
-util = { path = "../util"}

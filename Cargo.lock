@@ -632,7 +632,6 @@ dependencies = [
  "parse-display",
  "structopt",
  "thiserror",
- "util",
 ]
 
 [[package]]
