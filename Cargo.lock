@@ -36,7 +36,7 @@ dependencies = [
 [[package]]
 name = "aoclib"
 version = "0.1.0"
-source = "git+https://github.com/coriolinus/aoclib.git#f01c3d6098f83b570779d4702d47d86203413d46"
+source = "git+https://github.com/coriolinus/aoclib.git#f5112c8cfccfbc01c5ef9484b2a4d36bf1af1578"
 dependencies = [
  "bitvec",
  "dirs 3.0.2",
@@ -639,8 +639,11 @@ name = "day20"
 version = "0.1.0"
 dependencies = [
  "aoclib",
+ "color-eyre",
+ "parse-display",
  "permutohedron 0.2.4",
- "util",
+ "structopt",
+ "thiserror",
 ]
 
 [[package]]

@@ -1,21 +1,52 @@
-use util::get_line_input;
+use aoclib::{config::Config, website::get_input};
+use day20::{part1, part2};
 
-use day20::{first_house_with_n_presents, first_house_with_n_presents_limited};
+use color_eyre::eyre::Result;
+use std::path::PathBuf;
+use structopt::StructOpt;
 
-fn main() {
-    let presents_s =
-        get_line_input("Find the first house with this many presents or more: ").unwrap();
+const DAY: u8 = 20;
 
-    if let Ok(presents) = usize::from_str_radix(&presents_s.trim(), 10) {
-        println!("Dispatching elves...");
-        let n = first_house_with_n_presents(presents);
-        println!("First house with {} presents: {}", presents, n);
+#[derive(StructOpt, Debug)]
+struct RunArgs {
+    /// input file
+    #[structopt(long, parse(from_os_str))]
+    input: Option<PathBuf>,
 
-        println!("");
-        println!("Dispatching lazy elves...");
-        let n = first_house_with_n_presents_limited(presents);
-        println!("First house with enough presents with lazy elves: {}", n);
-    } else {
-        println!("Couldn't parse your input, sorry")
+    /// skip part 1
+    #[structopt(long = "no-part1")]
+    no_part1: bool,
+
+    /// run part 2
+    #[structopt(long)]
+    part2: bool,
+}
+
+impl RunArgs {
+    fn input(&self) -> Result<PathBuf> {
+        match self.input {
+            None => {
+                let config = Config::load()?;
+                // this does nothing if the input file already exists, but
+                // simplifies the workflow after cloning the repo on a new computer
+                get_input(&config, 2015, DAY)?;
+                Ok(config.input_for(2015, DAY))
+            }
+            Some(ref path) => Ok(path.clone()),
+        }
     }
+}
+
+fn main() -> Result<()> {
+    color_eyre::install()?;
+    let args = RunArgs::from_args();
+    let input_path = args.input()?;
+
+    if !args.no_part1 {
+        part1(&input_path)?;
+    }
+    if args.part2 {
+        part2(&input_path)?;
+    }
+    Ok(())
 }

@@ -33,18 +33,19 @@
 //! What is the lowest house number of the house to get at least as many presents as the number in
 //! your puzzle input?
 
+use aoclib::parse;
 use permutohedron::heap_recursive;
 
-use std::collections::HashSet;
+use std::{collections::HashSet, convert::TryInto, path::Path};
 
 /// Usized floor of the square root of the input number
-pub fn usqrt(num: usize) -> usize {
-    (num as f64).sqrt().floor() as usize
+pub fn usqrt(num: u64) -> u64 {
+    (num as f64).sqrt().floor() as u64
 }
 
 pub struct SieveOfErasthenes {
-    pub primes: Vec<usize>,
-    through: usize,
+    pub primes: Vec<u64>,
+    through: u64,
 }
 
 impl SieveOfErasthenes {
@@ -56,9 +57,9 @@ impl SieveOfErasthenes {
     }
 
     /// Return a list of unique prime factors of `num`
-    pub fn prime_factors(&mut self, num: usize) -> Vec<usize> {
+    pub fn prime_factors(&mut self, num: u64) -> Vec<u64> {
         match num {
-            0...1 => Vec::new(),
+            0..=1 => Vec::new(),
             _ => {
                 let sqrt_fl = usqrt(num);
                 if sqrt_fl > self.through {
@@ -76,7 +77,7 @@ impl SieveOfErasthenes {
     }
 
     /// Return a list of all prime factors of `num`
-    pub fn factorize_prime(&mut self, num: usize) -> Vec<usize> {
+    pub fn factorize_prime(&mut self, num: u64) -> Vec<u64> {
         match num {
             0 => Vec::new(),
             1 => vec![1],
@@ -96,7 +97,7 @@ impl SieveOfErasthenes {
     }
 
     /// return a list of all factors of `num`
-    pub fn factorize(&mut self, num: usize) -> Vec<usize> {
+    pub fn factorize(&mut self, num: u64) -> Vec<u64> {
         let mut prime_factors = self.factorize_prime(num);
         let mut ret = HashSet::new();
         ret.extend(&prime_factors);
@@ -119,13 +120,13 @@ impl SieveOfErasthenes {
             ret.insert(num / c);
         }
 
-        let mut r = ret.iter().cloned().collect::<Vec<usize>>();
+        let mut r = ret.iter().cloned().collect::<Vec<u64>>();
         r.sort();
         r
     }
 
     /// calculate all primes <= num
-    pub fn calc_through(&mut self, num: usize) {
+    pub fn calc_through(&mut self, num: u64) {
         if num <= self.through {
             return;
         }
@@ -146,14 +147,15 @@ impl SieveOfErasthenes {
     }
 }
 
-pub fn presents_at(sieve: &mut SieveOfErasthenes, house: usize) -> usize {
+pub fn presents_at(sieve: &mut SieveOfErasthenes, house: u64) -> u64 {
     let mut factors = HashSet::new();
     factors.extend(sieve.factorize(house));
     factors.iter().fold(0, |acc, item| acc + (10 * item))
 }
 
-pub fn first_house_with_n_presents(n: usize) -> usize {
+pub fn first_house_with_n_presents(n: u64) -> Result<u64, Error> {
     // the brute force of memory way!
+    let n = n.try_into()?;
     let stop = (n / 10) + 1;
     // we have an upper bound for the answer: even if nobody else stops there, elf `n/10` will
     // stop by and drop off that many right away
@@ -165,14 +167,15 @@ pub fn first_house_with_n_presents(n: usize) -> usize {
     }
     for (i, h) in houses.iter().enumerate() {
         if h >= &n {
-            return i;
+            return Ok(i.try_into()?);
         }
     }
-    0
+    Ok(0)
 }
 
-pub fn first_house_with_n_presents_limited(n: usize) -> usize {
+pub fn first_house_with_n_presents_limited(n: u64) -> Result<u64, Error> {
     // the brute force of memory way!
+    let n = n.try_into()?;
     let stop = (n / 10) + 1;
     // we have an upper bound for the answer: even if nobody else stops there, elf `n/10` will
     // stop by and drop off that many right away
@@ -188,10 +191,40 @@ pub fn first_house_with_n_presents_limited(n: usize) -> usize {
     }
     for (i, h) in houses.iter().enumerate() {
         if h >= &n {
-            return i;
+            return Ok(i.try_into()?);
         }
     }
-    0
+    Ok(0)
+}
+
+pub fn part1(input: &Path) -> Result<(), Error> {
+    for presents in parse::<u64>(input)? {
+        println!(
+            "First house with {} presents: {}",
+            presents,
+            first_house_with_n_presents(presents)?,
+        );
+    }
+    Ok(())
+}
+
+pub fn part2(input: &Path) -> Result<(), Error> {
+    for presents in parse::<u64>(input)? {
+        println!(
+            "First house with {} presents with lazy elves: {}",
+            presents,
+            first_house_with_n_presents_limited(presents)?,
+        );
+    }
+    Ok(())
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+    #[error("value cannot fit into `usize` on this architecture")]
+    Conversion(#[from] std::num::TryFromIntError),
 }
 
 #[cfg(test)]
@@ -235,7 +268,7 @@ mod tests {
     #[test]
     fn test_first_house_with_n() {
         for (input, output) in vec![(25, 2), (50, 4), (100, 6), (150, 8)] {
-            assert_eq!(first_house_with_n_presents(input), output);
+            assert_eq!(first_house_with_n_presents(input).unwrap(), output);
         }
     }
 }
