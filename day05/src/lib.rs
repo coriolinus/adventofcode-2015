@@ -21,7 +21,7 @@
 //! - `haegwjzuvuyypxyu` is naughty because it contains the string `xy`.
 //! - `dvszwmarrgswjxmb` is naughty because it contains only one vowel.
 
-use aoc2015::parse;
+use aoclib::parse;
 
 use lazy_static::lazy_static;
 use maplit::hashset;

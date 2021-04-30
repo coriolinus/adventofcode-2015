@@ -5,5 +5,6 @@ authors = ["coriolinus <coriolinus@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-util = { path = "../util"}
+aoclib = { git = "https://github.com/coriolinus/aoclib.git" }
 permutohedron = "^0.2.0"
+util = { path = "../util"}

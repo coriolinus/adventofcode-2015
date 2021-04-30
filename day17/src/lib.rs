@@ -15,7 +15,7 @@
 //! Filling all containers entirely, how many different combinations of containers can exactly fit
 //! all `150` liters of eggnog?
 
-use aoc2015::parse;
+use aoclib::parse;
 use std::path::Path;
 use thiserror::Error;
 

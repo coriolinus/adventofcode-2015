@@ -24,11 +24,11 @@
 //!   reason, you'd like to emulate the circuit instead, almost all programming languages (for
 //!   example, C, JavaScript, or Python) provide operators for these gates.
 
-use aoc2015::parse;
-use std::{path::Path, str::FromStr};
-use thiserror::Error;
+use aoclib::parse;
 use lalrpop_util::lalrpop_mod;
 use std::collections::{HashMap, HashSet};
+use std::{path::Path, str::FromStr};
+use thiserror::Error;
 
 lalrpop_mod!(parser);
 
@@ -95,7 +95,6 @@ impl Wire {
         }
     }
 }
-
 
 impl FromStr for Wire {
     type Err = lalrpop_util::ParseError<usize, String, &'static str>;

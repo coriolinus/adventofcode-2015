@@ -5,3 +5,4 @@ authors = ["coriolinus <coriolinus@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+aoclib = { git = "https://github.com/coriolinus/aoclib.git" }

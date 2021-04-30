@@ -16,7 +16,7 @@
 //! - A present with dimensions `1x1x10` requires `2*1 + 2*10 + 2*10 = 42` square feet of wrapping
 //!   paper plus `1` square foot of slack, for a total of `43` square feet.
 
-use aoc2015::{geometry::vector3::Vector3, parse};
+use aoclib::{geometry::vector3::Vector3, parse};
 use std::path::Path;
 use thiserror::Error;
 

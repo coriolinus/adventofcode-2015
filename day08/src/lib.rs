@@ -1,4 +1,4 @@
-use aoc2015::parse;
+use aoclib::parse;
 
 use std::{path::Path, unreachable};
 use thiserror::Error;

@@ -25,7 +25,7 @@
 //! Given the descriptions of each reindeer (in your puzzle input), after exactly 2503 seconds,
 //! what distance has the winning reindeer traveled?
 
-use aoc2015::parse;
+use aoclib::parse;
 use std::iter::FromIterator;
 use std::path::Path;
 use thiserror::Error;

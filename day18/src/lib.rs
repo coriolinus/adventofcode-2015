@@ -76,7 +76,7 @@
 //!
 //! In your grid of 100x100 lights, given your initial configuration, how many lights are on after 100 steps?
 
-use aoc2015::geometry::{tile::DisplayWidth, Map};
+use aoclib::geometry::{tile::DisplayWidth, Map};
 use std::{convert::TryFrom, path::Path};
 use thiserror::Error;
 

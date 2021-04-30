@@ -21,7 +21,7 @@
 //! - Passwords must contain at least two different, non-overlapping pairs of letters, like `aa`,
 //!   `bb`, or `zz`.
 
-use aoc2015::parse;
+use aoclib::parse;
 use std::{fmt, path::Path};
 use thiserror::Error;
 

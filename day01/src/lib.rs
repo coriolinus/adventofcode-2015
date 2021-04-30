@@ -65,7 +65,7 @@
 //! assert_eq!(-3, count_parens(")())())" ));
 //! ```
 
-use aoc2015::parse;
+use aoclib::parse;
 use std::path::Path;
 use thiserror::Error;
 

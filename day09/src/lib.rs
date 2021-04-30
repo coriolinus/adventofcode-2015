@@ -7,7 +7,7 @@
 //! locations he wants, but he must visit each location exactly once. What is the shortest distance
 //! he can travel to achieve this?
 
-use aoc2015::parse;
+use aoclib::parse;
 use permutohedron::heap_recursive;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};

@@ -8,7 +8,7 @@
 //! next step. For each step, take the previous value, and replace each run of digits (like `111`)
 //! with the number of digits (`3`) followed by the digit itself (`1`).
 
-use aoc2015::parse;
+use aoclib::parse;
 use std::path::Path;
 use thiserror::Error;
 

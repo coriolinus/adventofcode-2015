@@ -9,7 +9,7 @@
 //! have a circular table that will be just big enough to fit everyone comfortably, and so each
 //! person will have exactly two neighbors.
 
-use aoc2015::parse;
+use aoclib::parse;
 use permutohedron::heap_recursive;
 use std::{
     collections::{HashMap, HashSet},

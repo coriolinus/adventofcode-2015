@@ -43,7 +43,7 @@
 //!
 //! What is the number of the Sue that got you the gift?
 
-use aoc2015::parse;
+use aoclib::parse;
 use std::path::Path;
 use std::str::FromStr;
 use thiserror::Error;

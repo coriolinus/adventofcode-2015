@@ -16,7 +16,7 @@
 //!   starting with five zeroes is `1048970`; that is, the MD5 hash of `pqrstuv1048970` looks like
 //!   `000006136ef....`
 
-use aoc2015::parse;
+use aoclib::parse;
 
 use crypto::digest::Digest;
 use crypto::md5::Md5;

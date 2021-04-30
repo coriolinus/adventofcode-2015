@@ -24,7 +24,7 @@
 //!
 //! After following the instructions, how many lights are lit?
 
-use aoc2015::{
+use aoclib::{
     geometry::{Map, Point},
     parse,
 };

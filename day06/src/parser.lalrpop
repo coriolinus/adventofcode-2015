@@ -1,4 +1,4 @@
-use aoc2015::geometry::Point;
+use aoclib::geometry::Point;
 use super::{Instruction, Command};
 use std::str::FromStr;
 

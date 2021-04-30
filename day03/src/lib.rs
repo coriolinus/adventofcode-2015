@@ -18,7 +18,7 @@
 //!   starting/ending location.
 //! - `^v^v^v^v^v` delivers a bunch of presents to some very lucky children at only 2 houses.
 
-use aoc2015::{
+use aoclib::{
     geometry::{Direction, Point},
     parse,
 };
@@ -45,10 +45,13 @@ impl CookieCrumbs {
     }
 
     pub fn move_from_char(&mut self, ch: char) -> Result<(), Error> {
-        let direction: Direction = ch
-            .to_string()
-            .parse()
-            .map_err(|e| Error::ParseDirection(e, ch))?;
+        let direction = match ch {
+            '^' => Ok(Direction::Up),
+            'v' => Ok(Direction::Down),
+            '<' => Ok(Direction::Left),
+            '>' => Ok(Direction::Right),
+            _ => Err(Error::ParseDirection(ch)),
+        }?;
 
         self.santa = self.santa + direction;
         *self.trail.entry(self.santa).or_default() += 1;
@@ -165,8 +168,8 @@ pub fn part2(input: &Path) -> Result<(), Error> {
 pub enum Error {
     #[error(transparent)]
     Io(#[from] std::io::Error),
-    #[error("parsing direction from '{1}': {0}")]
-    ParseDirection(parse_display::ParseError, char),
+    #[error("parsing direction from: {0}")]
+    ParseDirection(char),
 }
 
 #[cfg(test)]

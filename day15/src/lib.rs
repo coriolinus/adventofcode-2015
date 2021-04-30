@@ -23,7 +23,7 @@
 pub mod recipe;
 use recipe::Recipe;
 
-use aoc2015::parse;
+use aoclib::parse;
 use std::path::Path;
 use thiserror::Error;
 

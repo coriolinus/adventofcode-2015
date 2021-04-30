@@ -1,4 +1,4 @@
-use aoc2015::geometry::Point;
+use aoclib::geometry::Point;
 use rand::Rng as _;
 use std::time::Duration;
 use std::{convert::TryFrom, path::Path};
