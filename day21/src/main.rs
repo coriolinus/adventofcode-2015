@@ -1,29 +1,52 @@
-use day21::cheapest_winning_loadout;
-use day21::item_shop;
-use day21::priciest_losing_loadout;
+use aoclib::{config::Config, website::get_input};
+use day21::{part1, part2};
 
-fn main() {
-    let cheapest = cheapest_winning_loadout(&item_shop());
-    match cheapest {
-        None => println!("Couldn't find any winning loadout, sucker."),
-        Some((l, w)) => {
-            println!("Cheapest loadout and winner: ");
-            println!("  {:?}", l);
-            println!("  {:?}", w);
-            println!("");
-            println!("Loadout cost: {}", l.cost());
+use color_eyre::eyre::Result;
+use std::path::PathBuf;
+use structopt::StructOpt;
+
+const DAY: u8 = 21;
+
+#[derive(StructOpt, Debug)]
+struct RunArgs {
+    /// input file
+    #[structopt(long, parse(from_os_str))]
+    input: Option<PathBuf>,
+
+    /// skip part 1
+    #[structopt(long = "no-part1")]
+    no_part1: bool,
+
+    /// run part 2
+    #[structopt(long)]
+    part2: bool,
+}
+
+impl RunArgs {
+    fn input(&self) -> Result<PathBuf> {
+        match self.input {
+            None => {
+                let config = Config::load()?;
+                // this does nothing if the input file already exists, but
+                // simplifies the workflow after cloning the repo on a new computer
+                get_input(&config, 2015, DAY)?;
+                Ok(config.input_for(2015, DAY))
+            }
+            Some(ref path) => Ok(path.clone()),
         }
     }
+}
 
-    let cheapest = priciest_losing_loadout(&item_shop());
-    match cheapest {
-        None => println!("Couldn't find any losing loadout, sucker."),
-        Some((l, w)) => {
-            println!("Priciest loadout and loser: ");
-            println!("  {:?}", l);
-            println!("  {:?}", w);
-            println!("");
-            println!("Loadout cost: {}", l.cost());
-        }
+fn main() -> Result<()> {
+    color_eyre::install()?;
+    let args = RunArgs::from_args();
+    let input_path = args.input()?;
+
+    if !args.no_part1 {
+        part1(&input_path)?;
     }
+    if args.part2 {
+        part2(&input_path)?;
+    }
+    Ok(())
 }

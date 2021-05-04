@@ -62,6 +62,8 @@
 //! You have `100` hit points. The boss's actual stats are in your puzzle input. What is the least
 //! amount of gold you can spend and still win the fight?
 
+use std::path::Path;
+
 #[derive(PartialEq, Eq, Copy, Clone, Debug, PartialOrd, Ord)]
 pub enum ItemType {
     Weapon,
@@ -82,7 +84,7 @@ impl Item {
     fn bare(itype: ItemType) -> Item {
         Item {
             name: "".to_string(),
-            itype: itype,
+            itype,
             cost: 0,
             damage: 0,
             armor: 0,
@@ -92,8 +94,8 @@ impl Item {
     fn weapon(name: &str, cost: u32, damage: u32) -> Item {
         Item {
             name: name.to_string(),
-            damage: damage,
-            cost: cost,
+            damage,
+            cost,
             ..Item::bare(ItemType::Weapon)
         }
     }
@@ -101,8 +103,8 @@ impl Item {
     fn armor(name: &str, cost: u32, armor: u32) -> Item {
         Item {
             name: name.to_string(),
-            armor: armor,
-            cost: cost,
+            armor,
+            cost,
             ..Item::bare(ItemType::Armor)
         }
     }
@@ -110,39 +112,36 @@ impl Item {
     fn ring(name: &str, cost: u32, damage: u32, armor: u32) -> Item {
         Item {
             name: name.to_string(),
-            damage: damage,
-            armor: armor,
-            cost: cost,
+            damage,
+            armor,
+            cost,
             ..Item::bare(ItemType::Ring)
         }
     }
 }
 
 pub fn item_shop() -> Vec<Item> {
-    let mut ret = Vec::new();
-    // weapons
-    ret.push(Item::weapon("Dagger", 8, 4));
-    ret.push(Item::weapon("Shortsword", 10, 5));
-    ret.push(Item::weapon("Warhammer", 25, 6));
-    ret.push(Item::weapon("Longsword", 40, 7));
-    ret.push(Item::weapon("Greataxe", 74, 8));
-
-    // armor
-    ret.push(Item::armor("Leather", 13, 1));
-    ret.push(Item::armor("Chainmail", 31, 2));
-    ret.push(Item::armor("Splintmail", 53, 3));
-    ret.push(Item::armor("Bandedmail", 75, 4));
-    ret.push(Item::armor("Platemail", 102, 5));
-
-    // rings
-    ret.push(Item::ring("Defense +1", 20, 0, 1));
-    ret.push(Item::ring("Damage +1", 25, 1, 0));
-    ret.push(Item::ring("Defense +2", 40, 0, 2));
-    ret.push(Item::ring("Damage +2", 50, 2, 0));
-    ret.push(Item::ring("Defense +3", 80, 0, 3));
-    ret.push(Item::ring("Damage +3", 100, 3, 0));
-
-    ret
+    vec![
+        // weapons
+        Item::weapon("Dagger", 8, 4),
+        Item::weapon("Shortsword", 10, 5),
+        Item::weapon("Warhammer", 25, 6),
+        Item::weapon("Longsword", 40, 7),
+        Item::weapon("Greataxe", 74, 8),
+        // armor
+        Item::armor("Leather", 13, 1),
+        Item::armor("Chainmail", 31, 2),
+        Item::armor("Splintmail", 53, 3),
+        Item::armor("Bandedmail", 75, 4),
+        Item::armor("Platemail", 102, 5),
+        // rings
+        Item::ring("Defense +1", 20, 0, 1),
+        Item::ring("Damage +1", 25, 1, 0),
+        Item::ring("Defense +2", 40, 0, 2),
+        Item::ring("Damage +2", 50, 2, 0),
+        Item::ring("Defense +3", 80, 0, 3),
+        Item::ring("Damage +3", 100, 3, 0),
+    ]
 }
 
 #[derive(PartialEq, Eq, Clone, Debug)]
@@ -173,10 +172,10 @@ impl Loadout {
             return None;
         }
         Some(Loadout {
-            weapon: weapon,
-            armor: armor,
-            ring_l: ring_l,
-            ring_r: ring_r,
+            weapon,
+            armor,
+            ring_l,
+            ring_r,
         })
     }
 
@@ -212,7 +211,7 @@ impl Loadout {
             .fold(0, |acc, ref item| acc + item.armor)
     }
 
-    pub fn upgrade_weapon(&mut self, weapons_list: &Vec<Item>) -> bool {
+    pub fn upgrade_weapon(&mut self, weapons_list: &[Item]) -> bool {
         let mut next_one = false;
         for weapon in weapons_list {
             if next_one {
@@ -230,7 +229,7 @@ impl Loadout {
         false
     }
 
-    pub fn upgrade_armor(&mut self, armors_list: &Vec<Item>) -> bool {
+    pub fn upgrade_armor(&mut self, armors_list: &[Item]) -> bool {
         if self.armor.is_none() {
             self.armor = match armors_list.first() {
                 None => None,
@@ -260,7 +259,7 @@ impl Loadout {
         false
     }
 
-    fn find_next_ring(&mut self, ring: &Item, rings_list: &Vec<Item>) -> Option<Item> {
+    fn find_next_ring(&mut self, ring: &Item, rings_list: &[Item]) -> Option<Item> {
         let mut next_ring = None;
         let mut next_one = false;
         for lring in rings_list {
@@ -274,15 +273,12 @@ impl Loadout {
         next_ring
     }
 
-    pub fn upgrade_rings(&mut self, rings_list: &Vec<Item>) -> bool {
-        if rings_list.len() == 0 {
-            return false;
-        } else if rings_list.len() == 1 && self.ring_r.is_some() {
-            // the only ring in the list is already assigned
+    pub fn upgrade_rings(&mut self, rings_list: &[Item]) -> bool {
+        if rings_list.is_empty() || rings_list.len() == 1 && self.ring_r.is_some() {
             return false;
         } else {
-            let ref second_last = rings_list[rings_list.len() - 2];
-            let ref last = rings_list[rings_list.len() - 1];
+            let second_last = &rings_list[rings_list.len() - 2];
+            let last = &rings_list[rings_list.len() - 1];
 
             if self.ring_l == Some(second_last.to_owned()) && self.ring_r == Some(last.to_owned()) {
                 // our rings are already the last two
@@ -369,28 +365,28 @@ pub struct LoadoutGenerator {
 }
 
 impl LoadoutGenerator {
-    pub fn new(items: &Vec<Item>) -> LoadoutGenerator {
+    pub fn new(items: &[Item]) -> LoadoutGenerator {
         // println!("Into LoadoutGenerator::new()");
-        let mut w = Vec::new();
-        let mut a = Vec::new();
-        let mut r = Vec::new();
+        let mut weapons = Vec::new();
+        let mut armors = Vec::new();
+        let mut rings = Vec::new();
 
         for item in items {
             match item.itype {
-                ItemType::Weapon => w.push(item.clone()),
-                ItemType::Armor => a.push(item.clone()),
-                ItemType::Ring => r.push(item.clone()),
+                ItemType::Weapon => weapons.push(item.clone()),
+                ItemType::Armor => armors.push(item.clone()),
+                ItemType::Ring => rings.push(item.clone()),
             }
         }
 
-        let dagger = w.first().unwrap().clone();
-        let initial = Loadout::new(dagger.to_owned(), None, None, None).unwrap();
+        let dagger = weapons.first().unwrap().clone();
+        let initial = Loadout::new(dagger, None, None, None).unwrap();
 
         LoadoutGenerator {
             current: initial,
-            weapons: w,
-            armors: a,
-            rings: r,
+            weapons,
+            armors,
+            rings,
             weapon_index: 0,
             armor_index: None,
             ring_l_index: None,
@@ -420,20 +416,20 @@ impl LoadoutGenerator {
     /// Increment the armor index. Return True if it rolled over and is now None, otherwise False.
     fn increment_armor(&mut self) -> bool {
         if self.armor_index.is_none() {
-            if self.armors.len() > 0 {
+            if !self.armors.is_empty() {
                 self.armor_index = Some(0);
-                return false;
+                false
             } else {
-                return true;
+                true
             }
         } else {
             let sai = self.armor_index.clone().unwrap();
             if sai < self.armors.len() - 1 {
                 self.armor_index = Some(sai + 1);
-                return false;
+                false
             } else {
                 self.armor_index = None;
-                return true;
+                true
             }
         }
     }
@@ -441,20 +437,20 @@ impl LoadoutGenerator {
     /// Increment the right ring index. Return True if it rolled over and is now None, otherwise False.
     fn increment_ring_r(&mut self) -> bool {
         if self.ring_r_index.is_none() {
-            if self.rings.len() > 0 {
+            if !self.rings.is_empty() {
                 self.ring_r_index = Some(0);
-                return false;
+                false
             } else {
-                return true;
+                true
             }
         } else {
             let srri = self.ring_r_index.clone().unwrap();
             if srri < self.rings.len() - 1 {
                 self.ring_r_index = Some(srri + 1);
-                return false;
+                false
             } else {
                 self.ring_r_index = None;
-                return true;
+                true
             }
         }
     }
@@ -463,11 +459,11 @@ impl LoadoutGenerator {
     fn increment_ring_l(&mut self) -> bool {
         // println!("Entered <LoadoutGenerator>.increment_ring_l()");
         if self.ring_l_index.is_none() {
-            if self.rings.len() > 0 {
+            if !self.rings.is_empty() {
                 self.ring_l_index = Some(0);
-                return false;
+                false
             } else {
-                return true;
+                true
             }
         } else {
             // println!(" ring_l_index: {:?}", self.ring_l_index);
@@ -477,10 +473,10 @@ impl LoadoutGenerator {
             // if slri < self.rings.len() - 1 && slri < srri - 1 {
             if slri < self.rings.len() - 1 {
                 self.ring_l_index = Some(slri + 1);
-                return false;
+                false
             } else {
                 self.ring_l_index = None;
-                return true;
+                true
             }
         }
     }
@@ -553,11 +549,11 @@ impl Iterator for LoadoutGenerator {
     }
 }
 
-pub fn cheapest_winning_loadout(items: &Vec<Item>) -> Option<(Loadout, Character)> {
+pub fn cheapest_winning_loadout(items: &[Item], boss: Character) -> Option<(Loadout, Character)> {
     // println!("Into cheapest_winning_loadout");
     let mut cheapest = None;
     for loadout in LoadoutGenerator::new(items) {
-        let winner = combat(Character::player(&loadout), Character::boss());
+        let winner = combat(Character::player(&loadout), boss);
         if winner.ctype == CharacterType::Player {
             if cheapest.is_none() {
                 cheapest = Some((loadout, winner));
@@ -577,11 +573,11 @@ pub fn cheapest_winning_loadout(items: &Vec<Item>) -> Option<(Loadout, Character
     cheapest
 }
 
-pub fn priciest_losing_loadout(items: &Vec<Item>) -> Option<(Loadout, Character)> {
+pub fn priciest_losing_loadout(items: &[Item], boss: Character) -> Option<(Loadout, Character)> {
     // println!("Into cheapest_winning_loadout");
     let mut priciest = None;
     for loadout in LoadoutGenerator::new(items) {
-        let winner = combat(Character::player(&loadout), Character::boss());
+        let winner = combat(Character::player(&loadout), boss);
         if winner.ctype == CharacterType::Boss {
             if priciest.is_none() {
                 priciest = Some((loadout.clone(), Character::player(&loadout)));
@@ -601,14 +597,22 @@ pub fn priciest_losing_loadout(items: &Vec<Item>) -> Option<(Loadout, Character)
     priciest
 }
 
-#[derive(PartialEq, Eq, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub enum CharacterType {
     Player,
     Boss,
 }
 
-#[derive(PartialEq, Eq, Clone, Debug)]
+impl Default for CharacterType {
+    fn default() -> Self {
+        CharacterType::Boss
+    }
+}
+
+#[derive(PartialEq, Eq, Clone, Copy, Debug, parse_display::Display, parse_display::FromStr)]
+#[display("Hit Points: {hp}\nDamage: {damage}\nArmor: {armor}\n")]
 pub struct Character {
+    #[from_str(default)]
     ctype: CharacterType,
     hp: u32,
     damage: u32,
@@ -655,10 +659,35 @@ pub fn combat(player: Character, boss: Character) -> Character {
             respondent.hp -= damage;
         }
         // swap roles
-        let temp = agent;
-        agent = respondent;
-        respondent = temp;
+        std::mem::swap(&mut agent, &mut respondent);
     }
+}
+
+pub fn part1(input: &Path) -> Result<(), Error> {
+    for boss in aoclib::input::parse_newline_sep::<Character>(input)? {
+        if let Some((loadout, _)) = cheapest_winning_loadout(&item_shop(), boss) {
+            println!("cheapest winning loadout cost: {}", loadout.cost());
+        } else {
+            println!("no winning loadout found");
+        }
+    }
+    Ok(())
+}
+
+pub fn part2(input: &Path) -> Result<(), Error> {
+    for boss in aoclib::input::parse_newline_sep::<Character>(input)? {
+        if let Some((loadout, _)) = priciest_losing_loadout(&item_shop(), boss) {
+            println!("priciest losing loadout cost: {}", loadout.cost());
+        } else {
+            println!("no losing loadout found");
+        }
+    }
+    Ok(())
+}
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
 }
 
 #[cfg(test)]
