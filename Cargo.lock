@@ -663,6 +663,10 @@ name = "day22"
 version = "0.1.0"
 dependencies = [
  "aoclib",
+ "color-eyre",
+ "parse-display",
+ "structopt",
+ "thiserror",
 ]
 
 [[package]]

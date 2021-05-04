@@ -141,7 +141,7 @@ use effects::recharge::Recharge;
 use effects::shield::Shield;
 use effects::{EffectImpl, Effects, Magic};
 
-use std::collections::VecDeque;
+use std::{collections::VecDeque, path::Path};
 
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub enum CharacterType {
@@ -149,7 +149,17 @@ pub enum CharacterType {
     Boss,
 }
 
-#[derive(PartialEq, Eq, Copy, Clone, Debug)]
+impl Default for CharacterType {
+    fn default() -> Self {
+        CharacterType::Boss
+    }
+}
+
+#[derive(
+    PartialEq, Eq, Copy, Clone, Debug, Default, parse_display::Display, parse_display::FromStr,
+)]
+#[display("Hit Points: {hp}\nDamage: {damage}\n")]
+#[from_str(default)]
 pub struct Character {
     ctype: CharacterType,
     hp: u8,
@@ -161,8 +171,8 @@ pub struct Character {
 impl Character {
     pub fn makeboss(hp: u8, damage: u8) -> Character {
         Character {
-            hp: hp,
-            damage: damage,
+            hp,
+            damage,
             ..Character::boss()
         }
     }
@@ -173,15 +183,14 @@ impl Character {
             ctype: CharacterType::Boss,
             hp: 55,
             damage: 8,
-            armor: 0,
-            mana: 0,
+            ..Character::default()
         }
     }
 
     pub fn makeplayer(hp: u8, mana: u16) -> Character {
         Character {
-            hp: hp,
-            mana: mana,
+            hp,
+            mana,
             ..Character::player()
         }
     }
@@ -190,9 +199,8 @@ impl Character {
         Character {
             ctype: CharacterType::Player,
             hp: 50,
-            damage: 0,
-            armor: 0,
             mana: 500,
+            ..Character::default()
         }
     }
 }
@@ -227,8 +235,15 @@ impl Default for Arena {
 impl Arena {
     pub fn new(player: Character, boss: Character) -> Arena {
         Arena {
-            player: player,
-            boss: boss,
+            player,
+            boss,
+            ..Arena::default()
+        }
+    }
+
+    fn with_boss(boss: Character) -> Arena {
+        Arena {
+            boss,
             ..Arena::default()
         }
     }
@@ -243,7 +258,7 @@ impl Arena {
         ret
     }
 
-    fn attempt_spell(&self, spell: &Magic) -> Option<Arena> {
+    fn attempt_spell(&self, spell: &dyn Magic) -> Option<Arena> {
         if self.player.mana >= spell.cost() {
             // You cannot cast a spell that would start an effect which is already active.
             // However, effects can be started on the same turn they end.
@@ -305,7 +320,7 @@ impl Arena {
         // Effects apply at the start of each player's turn.
         for effectimpl in &self.effects {
             let ei = effectimpl.etype.clone();
-            let mut effect: Box<Magic> = match ei {
+            let mut effect: Box<dyn Magic> = match ei {
                 Effects::Drain => Box::new(Drain::from_ei(effectimpl.clone())),
                 Effects::MagicMissile => Box::new(MagicMissile::from_ei(effectimpl.clone())),
                 Effects::Poison => Box::new(Poison::from_ei(effectimpl.clone())),
@@ -360,7 +375,7 @@ impl Arena {
                     let mut ret = Vec::new();
 
                     // sorted from low mana to high, for correct results
-                    let spells: Vec<Box<Magic>> = vec![
+                    let spells: Vec<Box<dyn Magic>> = vec![
                         Box::new(MagicMissile::new()),
                         Box::new(Drain::new()),
                         Box::new(Shield::new()),
@@ -432,6 +447,28 @@ pub fn breadth_first_victory_search_with_difficulty(arena: Arena, hard: bool) ->
         })
         .unwrap()
         .clone()
+}
+
+pub fn part1(input: &Path) -> Result<(), Error> {
+    for boss in aoclib::input::parse_newline_sep::<Character>(input)? {
+        let min = breadth_first_victory_search(Arena::with_boss(boss));
+        println!("Min mana required for easy victory: {}", min.mana_spent);
+    }
+    Ok(())
+}
+
+pub fn part2(input: &Path) -> Result<(), Error> {
+    for boss in aoclib::input::parse_newline_sep::<Character>(input)? {
+        let min = breadth_first_victory_search_with_difficulty(Arena::with_boss(boss), true);
+        println!("Min mana required for hard victory: {}", min.mana_spent);
+    }
+    Ok(())
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
 }
 
 #[cfg(test)]

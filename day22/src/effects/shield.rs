@@ -8,6 +8,12 @@ pub struct Shield {
     ei: EffectImpl,
 }
 
+impl Default for Shield {
+    fn default() -> Self {
+        Shield::new()
+    }
+}
+
 impl Shield {
     pub fn new() -> Shield {
         Shield {
@@ -21,7 +27,7 @@ impl Shield {
     }
 
     pub fn from_ei(ei: EffectImpl) -> Shield {
-        Shield { ei: ei }
+        Shield { ei }
     }
 }
 

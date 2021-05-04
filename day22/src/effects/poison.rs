@@ -8,6 +8,12 @@ pub struct Poison {
     ei: EffectImpl,
 }
 
+impl Default for Poison {
+    fn default() -> Self {
+        Poison::new()
+    }
+}
+
 impl Poison {
     pub fn new() -> Poison {
         Poison {
@@ -21,7 +27,7 @@ impl Poison {
     }
 
     pub fn from_ei(ei: EffectImpl) -> Poison {
-        Poison { ei: ei }
+        Poison { ei }
     }
 }
 

@@ -8,6 +8,12 @@ pub struct MagicMissile {
     ei: EffectImpl,
 }
 
+impl Default for MagicMissile {
+    fn default() -> Self {
+        MagicMissile::new()
+    }
+}
+
 impl MagicMissile {
     pub fn new() -> MagicMissile {
         MagicMissile {
@@ -21,7 +27,7 @@ impl MagicMissile {
     }
 
     pub fn from_ei(ei: EffectImpl) -> MagicMissile {
-        MagicMissile { ei: ei }
+        MagicMissile { ei }
     }
 }
 

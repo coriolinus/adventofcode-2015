@@ -8,6 +8,12 @@ pub struct Recharge {
     ei: EffectImpl,
 }
 
+impl Default for Recharge {
+    fn default() -> Self {
+        Recharge::new()
+    }
+}
+
 impl Recharge {
     pub fn new() -> Recharge {
         Recharge {
@@ -21,7 +27,7 @@ impl Recharge {
     }
 
     pub fn from_ei(ei: EffectImpl) -> Recharge {
-        Recharge { ei: ei }
+        Recharge { ei }
     }
 }
 

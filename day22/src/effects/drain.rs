@@ -8,6 +8,12 @@ pub struct Drain {
     ei: EffectImpl,
 }
 
+impl Default for Drain {
+    fn default() -> Self {
+        Drain::new()
+    }
+}
+
 impl Drain {
     pub fn new() -> Drain {
         Drain {
@@ -21,7 +27,7 @@ impl Drain {
     }
 
     pub fn from_ei(ei: EffectImpl) -> Drain {
-        Drain { ei: ei }
+        Drain { ei }
     }
 }
 
