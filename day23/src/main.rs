@@ -1,20 +1,52 @@
-use util::get_multiline_input;
+use aoclib::{config::Config, website::get_input};
+use day23::{part1, part2};
 
-use day23::{Instruction, Register, CPU};
+use color_eyre::eyre::Result;
+use std::path::PathBuf;
+use structopt::StructOpt;
 
-fn main() {
-    let program = get_multiline_input("Input program, EOF-terminated:").unwrap();
-    let insts = Instruction::parse_lines(&program);
-    if let Ok(insts) = insts {
-        let mut cpu = CPU::from_instructions(insts);
-        cpu.run();
-        println!("Terminating with register B = '{}'", cpu.get(Register::B));
-        println!("Resetting and rerunning with register A = '1'");
-        cpu.reset();
-        cpu.set(Register::A, 1);
-        cpu.run();
-        println!("Terminating with register B = '{}'", cpu.get(Register::B));
-    } else {
-        println!("Could not parse your instructions, sorry;")
+const DAY: u8 = 23;
+
+#[derive(StructOpt, Debug)]
+struct RunArgs {
+    /// input file
+    #[structopt(long, parse(from_os_str))]
+    input: Option<PathBuf>,
+
+    /// skip part 1
+    #[structopt(long = "no-part1")]
+    no_part1: bool,
+
+    /// run part 2
+    #[structopt(long)]
+    part2: bool,
+}
+
+impl RunArgs {
+    fn input(&self) -> Result<PathBuf> {
+        match self.input {
+            None => {
+                let config = Config::load()?;
+                // this does nothing if the input file already exists, but
+                // simplifies the workflow after cloning the repo on a new computer
+                get_input(&config, 2015, DAY)?;
+                Ok(config.input_for(2015, DAY))
+            }
+            Some(ref path) => Ok(path.clone()),
+        }
     }
+}
+
+fn main() -> Result<()> {
+    color_eyre::install()?;
+    let args = RunArgs::from_args();
+    let input_path = args.input()?;
+
+    if !args.no_part1 {
+        part1(&input_path)?;
+    }
+    if args.part2 {
+        part2(&input_path)?;
+    }
+    Ok(())
 }

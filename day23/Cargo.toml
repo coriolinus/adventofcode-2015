@@ -6,4 +6,7 @@ edition = "2018"
 
 [dependencies]
 aoclib = { git = "https://github.com/coriolinus/aoclib.git" }
-util = { path = "../util"}
+color-eyre = "0.5.10"
+parse-display = "0.4.1"
+structopt = "0.3.21"
+thiserror = "1.0.22"
