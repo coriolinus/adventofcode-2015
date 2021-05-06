@@ -139,15 +139,6 @@ mod tests {
     }
 
     #[test]
-    fn test_parse() {
-        let inputs = vec!["1x1x1", "2x3x4", "1x1x10"];
-
-        for (g, i) in get_boxes().iter().zip(inputs) {
-            assert_eq!(g, &GiftBox::parse(i).ok().unwrap());
-        }
-    }
-
-    #[test]
     fn test_surface_area() {
         let expected = vec![6, 52, 42];
 

@@ -231,10 +231,7 @@ impl Loadout {
 
     pub fn upgrade_armor(&mut self, armors_list: &[Item]) -> bool {
         if self.armor.is_none() {
-            self.armor = match armors_list.first() {
-                None => None,
-                Some(armor) => Some(armor.clone()),
-            };
+            self.armor = armors_list.first().cloned();
             return true;
         }
 
@@ -259,20 +256,6 @@ impl Loadout {
         false
     }
 
-    fn find_next_ring(&mut self, ring: &Item, rings_list: &[Item]) -> Option<Item> {
-        let mut next_ring = None;
-        let mut next_one = false;
-        for lring in rings_list {
-            if next_one {
-                next_ring = Some(ring.clone());
-                break;
-            } else if lring == ring {
-                next_one = true;
-            }
-        }
-        next_ring
-    }
-
     pub fn upgrade_rings(&mut self, rings_list: &[Item]) -> bool {
         if rings_list.is_empty() || rings_list.len() == 1 && self.ring_r.is_some() {
             return false;
@@ -287,26 +270,20 @@ impl Loadout {
         }
 
         if self.ring_r.is_none() {
-            self.ring_r = match rings_list.first() {
-                None => None,
-                Some(ring) => Some(ring.clone()),
-            };
+            self.ring_r = rings_list.first().cloned();
             return true;
         }
 
         let srr = self.ring_r.clone().unwrap();
-        let upgrade_right = self.find_next_ring(&srr, rings_list); // if None, we're out of rings on the right.
+        let upgrade_right = find_next_ring(&srr, rings_list); // if None, we're out of rings on the right.
         if upgrade_right.is_none() {
             // we can't upgrade the right side, so let's upgrade the left.
             if self.ring_l.is_none() {
-                self.ring_l = match rings_list.first() {
-                    None => None,
-                    Some(ring) => Some(ring.clone()),
-                };
+                self.ring_l = rings_list.first().cloned();
                 return true;
             } else {
                 let srl = self.ring_l.clone().unwrap();
-                let upgrade_left = self.find_next_ring(&srl, rings_list);
+                let upgrade_left = find_next_ring(&srl, rings_list);
                 if let Some(ring) = upgrade_left {
                     self.ring_l = Some(ring);
                     return true;
@@ -320,14 +297,9 @@ impl Loadout {
 
         // let's figure out the cost of upgrading the left ring:
         // It's the cost of the next left ring plus the cost of the current right ring
-        let upgrade_left = if self.ring_l.is_none() {
-            match rings_list.first() {
-                None => None,
-                Some(ring) => Some(ring.clone()),
-            }
-        } else {
-            let srl = self.ring_l.clone().unwrap();
-            self.find_next_ring(&srl, rings_list)
+        let upgrade_left = match self.ring_l {
+            None => rings_list.first().cloned(),
+            Some(ref ring) => find_next_ring(ring, rings_list),
         }
         .unwrap();
 
@@ -349,6 +321,20 @@ impl Loadout {
             true
         }
     }
+}
+
+fn find_next_ring(ring: &Item, rings_list: &[Item]) -> Option<Item> {
+    let mut next_ring = None;
+    let mut next_one = false;
+    for lring in rings_list {
+        if next_one {
+            next_ring = Some(ring.clone());
+            break;
+        } else if lring == ring {
+            next_one = true;
+        }
+    }
+    next_ring
 }
 
 #[derive(Clone)]
@@ -398,18 +384,9 @@ impl LoadoutGenerator {
     fn loadout_from_indices(&self) -> Loadout {
         Loadout {
             weapon: self.weapons[self.weapon_index].clone(),
-            armor: match self.armor_index {
-                None => None,
-                Some(i) => Some(self.armors[i].clone()),
-            },
-            ring_l: match self.ring_l_index {
-                None => None,
-                Some(i) => Some(self.rings[i].clone()),
-            },
-            ring_r: match self.ring_r_index {
-                None => None,
-                Some(i) => Some(self.rings[i].clone()),
-            },
+            armor: self.armor_index.map(|idx| self.armors[idx].clone()),
+            ring_l: self.ring_l_index.map(|idx| self.rings[idx].clone()),
+            ring_r: self.ring_r_index.map(|idx| self.rings[idx].clone()),
         }
     }
 

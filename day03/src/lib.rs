@@ -40,7 +40,7 @@ impl CookieCrumbs {
         };
 
         // by the problem definition, Santa has already visited the house at the origin
-        cc.trail.insert(cc.santa.clone(), 1);
+        cc.trail.insert(cc.santa, 1);
         cc
     }
 
@@ -53,7 +53,7 @@ impl CookieCrumbs {
             _ => Err(Error::ParseDirection(ch)),
         }?;
 
-        self.santa = self.santa + direction;
+        self.santa += direction;
         *self.trail.entry(self.santa).or_default() += 1;
 
         Ok(())

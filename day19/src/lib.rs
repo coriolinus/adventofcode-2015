@@ -67,7 +67,7 @@ impl FromStr for Input {
         let mut lines: Vec<_> = s.split('\n').collect();
         lines.retain(|line| !line.is_empty());
 
-        if lines.len() > 0 {
+        if !lines.is_empty() {
             input.medicine = lines[lines.len() - 1].to_string();
             for line in &lines[..lines.len() - 1] {
                 input.replacements.push(

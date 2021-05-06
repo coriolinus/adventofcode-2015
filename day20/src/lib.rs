@@ -48,6 +48,12 @@ pub struct SieveOfErasthenes {
     through: u64,
 }
 
+impl Default for SieveOfErasthenes {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SieveOfErasthenes {
     pub fn new() -> SieveOfErasthenes {
         SieveOfErasthenes {
@@ -105,12 +111,7 @@ impl SieveOfErasthenes {
         let pl = prime_factors.len();
         heap_recursive(&mut prime_factors, |factor_ordering| {
             for how_many in 2..pl {
-                ret.insert(
-                    factor_ordering
-                        .iter()
-                        .take(how_many)
-                        .fold(1, |acc, item| acc * item),
-                );
+                ret.insert(factor_ordering.iter().take(how_many).product());
             }
         });
 
@@ -121,7 +122,7 @@ impl SieveOfErasthenes {
         }
 
         let mut r = ret.iter().cloned().collect::<Vec<u64>>();
-        r.sort();
+        r.sort_unstable();
         r
     }
 

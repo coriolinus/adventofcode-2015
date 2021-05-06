@@ -210,7 +210,7 @@ mod tests {
     fn test_example() {
         let mut grid = get_example();
         assert_eq!(count_on(&grid), 15);
-        println!("");
+        println!();
         println!("Initial State:");
         println!("{}", grid.to_string());
 

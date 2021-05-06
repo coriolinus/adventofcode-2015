@@ -48,8 +48,8 @@ pub enum Register {
 impl Register {
     fn val(&self) -> usize {
         match self {
-            &Register::A => 0,
-            &Register::B => 1,
+            Register::A => 0,
+            Register::B => 1,
         }
     }
 }

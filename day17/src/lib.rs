@@ -38,8 +38,8 @@ impl EggnogFiller {
     /// containers. These must be in order, largest to smallest, for this to work right.
     fn new_given_sorted(from: Container, into: Vec<Container>) -> EggnogFiller {
         EggnogFiller {
-            from: from,
-            into: into,
+            from,
+            into,
             biggest: 0,
             recursor: None,
             preserve_biggest: false,
@@ -49,7 +49,7 @@ impl EggnogFiller {
     /// Construct a new EggnogFiller given an origin container and a list of destination containers.
     pub fn new(from: Container, into: Vec<Container>) -> EggnogFiller {
         let mut into = into;
-        into.sort();
+        into.sort_unstable();
         into.reverse();
         EggnogFiller::new_given_sorted(from, into)
     }
@@ -59,7 +59,7 @@ impl Iterator for EggnogFiller {
     type Item = Vec<Container>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.into.len() == 0 {
+        if self.into.is_empty() {
             return None;
         }
 
@@ -68,7 +68,7 @@ impl Iterator for EggnogFiller {
             self.biggest = self.into.remove(0);
 
             while self.biggest > self.from {
-                if self.into.len() == 0 {
+                if self.into.is_empty() {
                     return None;
                 }
                 self.biggest = self.into.remove(0);
@@ -86,7 +86,7 @@ impl Iterator for EggnogFiller {
             }
         }
 
-        if self.into.len() > 0 {
+        if !self.into.is_empty() {
             if self.recursor.is_none() {
                 self.preserve_biggest = true;
                 self.recursor = Some(Box::new(EggnogFiller::new_given_sorted(
@@ -131,7 +131,7 @@ impl Iterator for EggnogFiller {
 pub fn part1(input: &Path) -> Result<(), Error> {
     let containers: Vec<Container> = parse(input)?.collect();
     let filler = EggnogFiller::new(EGGNOG_QTY, containers);
-    let combo_count = filler.clone().count();
+    let combo_count = filler.count();
     println!("Possible combinations: {}", combo_count);
     Ok(())
 }
@@ -140,7 +140,7 @@ pub fn part2(input: &Path) -> Result<(), Error> {
     let containers: Vec<Container> = parse(input)?.collect();
     let filler = EggnogFiller::new(EGGNOG_QTY, containers);
     let min_ctrs = filler.clone().map(|c| c.len()).min().unwrap();
-    let ways_min = filler.clone().filter(|c| c.len() == min_ctrs).count();
+    let ways_min = filler.filter(|c| c.len() == min_ctrs).count();
 
     println!(
         "..with {} ways to use only {} containers.",

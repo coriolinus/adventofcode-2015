@@ -81,12 +81,12 @@ pub struct Reindeer {
 }
 
 impl Reindeer {
-    pub fn new(name: String, speed: u32, fly: u32, rest: u32) -> Reindeer {
+    pub fn new(name: String, speed: u32, fly_duration: u32, rest_duration: u32) -> Reindeer {
         Reindeer {
-            name: name,
-            speed: speed,
-            fly_duration: fly,
-            rest_duration: rest,
+            name,
+            speed,
+            fly_duration,
+            rest_duration,
             ..Default::default()
         }
     }

@@ -30,7 +30,10 @@ use std::collections::{HashMap, HashSet};
 use std::{path::Path, str::FromStr};
 use thiserror::Error;
 
-lalrpop_mod!(parser);
+lalrpop_mod!(
+    #[allow(clippy::all)]
+    parser
+);
 
 type Signals = HashMap<String, u16>;
 

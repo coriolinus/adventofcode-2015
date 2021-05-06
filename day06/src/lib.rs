@@ -33,7 +33,7 @@ use lalrpop_util::lalrpop_mod;
 use std::{path::Path, str::FromStr};
 use thiserror::Error;
 
-lalrpop_mod!(pub parser);
+lalrpop_mod!(#[allow(clippy::all)] pub parser);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Instruction {
