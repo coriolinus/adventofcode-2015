@@ -2,147 +2,72 @@ use crate::{
     items::{Item, ItemType},
     loadout::Loadout,
 };
+use itertools::Itertools;
 
-/// Increment an item index. Returns `true` if it rolled over and is now `None`, otherwise `false`.
-fn increment_item(item: &mut Option<usize>, collection: &[Item]) -> bool {
-    match item {
-        None => {
-            if !collection.is_empty() {
-                *item = Some(0);
-            }
-        }
-        Some(mut current_idx) => {
-            current_idx += 1;
-            if current_idx < collection.len() {
-                *item = Some(current_idx);
-            } else {
-                *item = None;
-            }
-        }
-    }
-    item.is_none()
+/// Produce `None`, followed by `Some(t)` for each item in `ts`.
+fn optional_iter<T: Clone>(
+    ts: impl Iterator<Item = T> + Clone,
+) -> impl Iterator<Item = Option<T>> + Clone {
+    std::iter::once(None).chain(ts.map(Some))
 }
 
-#[derive(Clone)]
-pub struct LoadoutGenerator {
-    current: Loadout,
-    weapons: Vec<Item>,
-    armors: Vec<Item>,
-    rings: Vec<Item>,
-    weapon_index: usize,
-    armor_index: Option<usize>,
-    ring_l_index: Option<usize>,
-    ring_r_index: Option<usize>,
-    first_call: bool,
+/// Produce an iterator over sets of 0, 1, 2 distinct rings.
+fn rings_iter<T: Ord + Copy>(
+    rings: impl Iterator<Item = T> + Clone,
+) -> impl Iterator<Item = (Option<T>, Option<T>)> + Clone {
+    optional_iter(rings.clone())
+        .cartesian_product(optional_iter(rings))
+        .filter(|rings| match rings {
+            // given two rings, they must be distinct, and the more powerful must be on the right
+            // (for efficiency)
+            (Some(left), Some(right)) => left < right,
+            // discard left-hand-only cases for efficiency (redundant with right-hand-only)
+            (Some(_), None) => false,
+            // consider all the other cases
+            _ => true,
+        })
 }
 
-impl LoadoutGenerator {
-    pub fn new(items: &[Item]) -> LoadoutGenerator {
-        let mut weapons = Vec::new();
-        let mut armors = Vec::new();
-        let mut rings = Vec::new();
+pub fn loadout_generator(items: &[Item]) -> impl '_ + Iterator<Item = Loadout> {
+    let filter_items =
+        |item_type: ItemType| items.iter().filter(move |item| item.itype == item_type);
+    let weapons = filter_items(ItemType::Weapon);
+    let armors = filter_items(ItemType::Armor);
+    let rings = filter_items(ItemType::Ring);
 
-        for item in items {
-            match item.itype {
-                ItemType::Weapon => weapons.push(*item),
-                ItemType::Armor => armors.push(*item),
-                ItemType::Ring => rings.push(*item),
-            }
-        }
+    weapons
+        .into_iter()
+        .cartesian_product(optional_iter(armors))
+        .cartesian_product(rings_iter(rings.copied()))
+        .map(|((weapon, armor), (left_ring, right_ring))| Loadout {
+            weapon: *weapon,
+            armor: armor.copied(),
+            ring_l: left_ring,
+            ring_r: right_ring,
+        })
+}
 
-        let dagger = *weapons.first().unwrap();
-        let current = Loadout::new(dagger, None, None, None).unwrap();
+#[cfg(test)]
+mod test {
+    use super::*;
+    use maplit::hashset;
+    use std::collections::HashSet;
 
-        LoadoutGenerator {
-            current,
-            weapons,
-            armors,
+    #[test]
+    fn rings_iter_produces_correct_items() {
+        let rings: HashSet<_> = rings_iter(0..3).collect();
+        println!("{:#?}", rings);
+        assert_eq!(
             rings,
-            weapon_index: 0,
-            armor_index: None,
-            ring_l_index: None,
-            ring_r_index: None,
-            first_call: true,
-        }
-    }
-
-    fn as_loadout(&self) -> Loadout {
-        Loadout {
-            weapon: self.weapons[self.weapon_index],
-            armor: self.armor_index.map(|idx| self.armors[idx]),
-            ring_l: self.ring_l_index.map(|idx| self.rings[idx]),
-            ring_r: self.ring_r_index.map(|idx| self.rings[idx]),
-        }
-    }
-
-    /// Increment the armor index. Return True if it rolled over and is now None, otherwise False.
-    fn increment_armor(&mut self) -> bool {
-        increment_item(&mut self.armor_index, &self.armors)
-    }
-
-    /// Increment the right ring index. Return True if it rolled over and is now None, otherwise False.
-    fn increment_ring_r(&mut self) -> bool {
-        increment_item(&mut self.ring_r_index, &self.rings)
-    }
-
-    /// Increment the left ring index. Return True if it rolled over and is now None, otherwise False.
-    fn increment_ring_l(&mut self) -> bool {
-        increment_item(&mut self.ring_l_index, &self.rings)
-    }
-}
-
-// This implementation looks _sketchy_. A reasonable target for refactor, later.
-impl Iterator for LoadoutGenerator {
-    type Item = Loadout;
-    /// Generate the next loadout.
-    ///
-    /// Ordering is arbitrary.
-    fn next(&mut self) -> Option<Loadout> {
-        // we have to have a weapon
-        if self.weapons.is_empty() {
-            return None;
-        }
-
-        if self.first_call {
-            self.first_call = false;
-            return Some(self.as_loadout());
-        }
-
-        // Time to slowly tune everything up.
-        if self.weapon_index < self.weapons.len() - 1 {
-            // increment the weapon
-            self.weapon_index += 1;
-        } else {
-            self.weapon_index = 0;
-            if self.increment_armor() {
-                // armor rolled over
-                if self.increment_ring_r() {
-                    // ring r rolled over
-                    if self.increment_ring_l() {
-                        // ring l rolled over
-                        // That's it! That's the end of the iteration!
-                        return None;
-                    }
-                    // ring r is None, but that's not right. It is always higher than ring l.
-                    // also, if we're here, ring l is not None.
-                    let slri = self.ring_l_index.clone().unwrap();
-                    if slri < self.rings.len() - 1 {
-                        self.ring_r_index = Some(slri + 1);
-                    } else {
-                        // this should never happen, because it would break the condition
-                        // that self.ring_r_index is always > self.ring_l_index.
-                        //
-                        // however, it does in fact happen because we can't guard against that
-                        // in self.increment_ring_l because when that function is called,
-                        // self.ring_r_index is guaranteed to be None.
-                        //
-                        // How about, instead of panicing, we just recurse a little and skip this
-                        // result?
-                        return self.next();
-                    }
-                }
+            hashset! {
+                (None, None),
+                (None, Some(0)),
+                (None, Some(1)),
+                (None, Some(2)),
+                (Some(0), Some(1)),
+                (Some(0), Some(2)),
+                (Some(1), Some(2)),
             }
-        }
-        Some(self.as_loadout())
+        );
     }
 }

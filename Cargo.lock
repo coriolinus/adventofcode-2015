@@ -652,6 +652,8 @@ version = "0.1.0"
 dependencies = [
  "aoclib",
  "color-eyre",
+ "itertools 0.10.0",
+ "maplit",
  "parse-display",
  "permutohedron 0.2.4",
  "structopt",

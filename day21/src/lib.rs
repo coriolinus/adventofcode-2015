@@ -72,7 +72,7 @@ mod loadout_generator;
 use character::{Character, CharacterType};
 use items::{item_shop, Item};
 use loadout::Loadout;
-use loadout_generator::LoadoutGenerator;
+use loadout_generator::loadout_generator;
 
 pub fn combat(mut agent: Character, mut respondent: Character) -> Character {
     loop {
@@ -96,7 +96,7 @@ pub fn combat(mut agent: Character, mut respondent: Character) -> Character {
 }
 
 pub fn cheapest_winning_loadout(items: &[Item], boss: Character) -> Option<(Loadout, Character)> {
-    LoadoutGenerator::new(items)
+    loadout_generator(items)
         .filter_map(|loadout| {
             let winner = combat((&loadout).into(), boss);
             (winner.ctype == CharacterType::Player).then(move || (loadout, winner))
@@ -105,7 +105,7 @@ pub fn cheapest_winning_loadout(items: &[Item], boss: Character) -> Option<(Load
 }
 
 pub fn priciest_losing_loadout(items: &[Item], boss: Character) -> Option<(Loadout, Character)> {
-    LoadoutGenerator::new(items)
+    loadout_generator(items)
         .filter_map(|loadout| {
             let winner = combat((&loadout).into(), boss);
             (winner.ctype == CharacterType::Boss).then(move || (loadout, winner))
