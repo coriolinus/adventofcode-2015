@@ -1,4 +1,5 @@
 use crate::Package;
+use core::borrow;
 use std::{
     cell::{Cell, RefCell},
     cmp::Ordering,
@@ -75,8 +76,11 @@ impl BoundedPermutationGenerator {
     fn next_solution(&self) -> Option<Vec<Package>> {
         let mut solution = None;
         while solution.is_none() {
-            match *self.child.borrow() {
+            let borrowed_child = self.child.borrow();
+            match *borrowed_child {
                 None => {
+                    std::mem::drop(borrowed_child);
+
                     // no child generator means that we should compare indices at this level.
                     if self.package_idx.get() >= self.packages.len() {
                         // we've exhausted the packages available
@@ -120,6 +124,7 @@ impl BoundedPermutationGenerator {
                         // afterwards, clean up.
                         None => {
                             std::mem::drop(child);
+                            std::mem::drop(borrowed_child);
                             self.child.replace(None);
                             self.queue.borrow_mut().pop();
                             self.incr_idx();
