@@ -51,91 +51,175 @@
 //! Had there been two configurations with only two packages in the first group, the one with the
 //! smaller quantum entanglement would be chosen.
 
-use std::path::Path;
+use std::{
+    cmp::Reverse,
+    convert::{TryFrom, TryInto},
+    path::Path,
+};
 
 mod summed_subsets;
 
-use summed_subsets::SummedSubsets;
-
 pub type Package = u16;
 
-#[derive(Clone, Debug)]
-pub struct Sleigh {
-    pub foot: Vec<Package>,
-    pub left: Vec<Package>,
-    pub right: Vec<Package>,
-    pub trunk: Vec<Package>,
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Compartment {
+    Footwell,
+    LeftSaddle,
+    RightSaddle,
+    Trunk,
 }
 
-impl Sleigh {
-    /// Quantum Entanglement of the footwell of this sleigh.
-    pub fn foot_qe(&self) -> u64 {
-        self.foot.iter().map(|&x| x as u64).product()
-    }
-
-    pub fn foot_wt(&self) -> u16 {
-        self.foot.iter().map(|&x| x as u16).sum()
-    }
-
-    pub fn left_wt(&self) -> u16 {
-        self.left.iter().map(|&x| x as u16).sum()
-    }
-
-    pub fn right_wt(&self) -> u16 {
-        self.right.iter().map(|&x| x as u16).sum()
+impl Compartment {
+    /// Use the next compartment.
+    ///
+    /// Returns `true` when rollover to the default.
+    fn next(&mut self, use_trunk: bool) -> bool {
+        *self = match self {
+            Compartment::Footwell => Compartment::LeftSaddle,
+            Compartment::LeftSaddle => Compartment::RightSaddle,
+            Compartment::RightSaddle => {
+                if use_trunk {
+                    Compartment::Trunk
+                } else {
+                    Compartment::Footwell
+                }
+            }
+            Compartment::Trunk => Compartment::Footwell,
+        };
+        *self == Compartment::Footwell
     }
 }
 
-impl Default for Sleigh {
-    fn default() -> Sleigh {
-        Sleigh {
-            foot: Vec::new(),
-            left: Vec::new(),
-            right: Vec::new(),
-            trunk: Vec::new(),
+impl Default for Compartment {
+    fn default() -> Self {
+        Compartment::Footwell
+    }
+}
+
+impl TryFrom<usize> for Compartment {
+    type Error = ();
+
+    fn try_from(value: usize) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Compartment::Footwell),
+            1 => Ok(Compartment::LeftSaddle),
+            2 => Ok(Compartment::RightSaddle),
+            3 => Ok(Compartment::Trunk),
+            _ => Err(()),
         }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct PackingList<'a> {
+    configurator: &'a Configurator,
+    compartments: Vec<Compartment>,
+}
+
+impl<'a> PackingList<'a> {
+    fn packages_in(&self, want: Compartment) -> impl '_ + Iterator<Item = Package> {
+        self.configurator
+            .packages
+            .iter()
+            .zip(self.compartments.iter())
+            .filter_map(move |(package, present_in)| (*present_in == want).then(|| *package))
+    }
+
+    /// Quantum Entanglement of the footwell of this sleigh.
+    pub fn qe(&self, compartment: Compartment) -> u64 {
+        self.packages_in(compartment)
+            .map(|weight| weight as u64)
+            .product()
+    }
+
+    pub fn weight(&self, compartment: Compartment) -> Package {
+        self.packages_in(compartment).sum()
     }
 }
 
 /// Generator of legal sleigh configurations. Main entry point to this module.
 ///
 /// Note: This only handles the case that all of the `Package`s have unique sizes.
-pub struct SleighConfigurations {
+#[derive(Debug)]
+pub struct Configurator {
+    // always reverse-sorted
     packages: Vec<Package>,
-    side_wt: Package, // weight for each side
-    foot_iter: SummedSubsets<Package>,
+    side_weight: Package, // weight for each side
     use_trunk: bool,
 }
 
-impl SleighConfigurations {
+impl Configurator {
     /// Construct a new `SleighConfigurations` generator.
     ///
     /// Returns `None` if the total weight can't be evenly divided by 3, or if the biggest package
     /// is bigger than 1/3 of the total weight, because in those circumstances no valid sleigh
     /// configurations can be generated.
-    pub fn new(mut packages: Vec<Package>, use_trunk: bool) -> Option<SleighConfigurations> {
+    pub fn new(mut packages: Vec<Package>, use_trunk: bool) -> Option<Configurator> {
         let spaces = if use_trunk { 4 } else { 3 };
-        let total = packages.iter().fold(0, |acc, item| acc + item);
+        let total: Package = packages.iter().sum();
         if total % spaces != 0 {
             // Invalid configuration; the packages can't be divided into groups of three equal weights
             return None;
         }
+        let side_weight = total / spaces;
 
-        packages.sort();
+        packages.sort_unstable_by_key(|weight| Reverse(*weight));
 
-        if let Some(biggest) = packages.last() {
-            if biggest > &(total / spaces) {
-                // Invalid configuration: the biggest item won't fit into any group
-                return None;
-            }
+        if *packages.first()? > side_weight {
+            // Invalid configuration: the biggest item won't fit into any group
+            return None;
         }
 
-        Some(SleighConfigurations {
-            packages: packages.clone(),
-            side_wt: total / spaces,
-            foot_iter: SummedSubsets::new(packages, total / spaces),
-            use_trunk: use_trunk,
+        Some(Configurator {
+            packages,
+            side_weight,
+            use_trunk,
         })
+    }
+
+    fn packing_list<'a>(&'a self, compartments: Vec<Compartment>) -> PackingList<'a> {
+        PackingList {
+            configurator: &self,
+            compartments,
+        }
+    }
+
+    /// Find an initial configuration satisfying the balance requirements.
+    fn fill_compartments(&self) -> Option<Vec<Compartment>> {
+        let mut compartments = vec![Compartment::default(); self.packages.len()];
+        let mut compartment_weights = [0; 4];
+        let high_idx = if self.use_trunk { 4 } else { 3 };
+        'outer: for (pkg_idx, package) in self.packages.iter().enumerate() {
+            for cpt_idx in 0..high_idx {
+                if compartment_weights[cpt_idx] + package <= self.side_weight {
+                    compartment_weights[cpt_idx] += package;
+                    compartments[pkg_idx] = cpt_idx.try_into().ok()?;
+                    continue 'outer;
+                }
+            }
+            // could not find a compartment into which this package could fit
+            return None;
+        }
+        // we have generated an appropriate packing
+        compartment_weights[..high_idx]
+            .iter()
+            .all(|weight| *weight == self.side_weight)
+            .then(move || compartments)
+    }
+
+    /// Generate a series of packing lists satisfying the balance requirements.
+    fn generate_packing_lists<'a>(&'a self) -> impl Iterator<Item = PackingList<'a>> {
+        let use_trunk = self.use_trunk;
+        let side_weight = self.side_weight;
+        std::iter::successors(self.fill_compartments(), move |prev| {
+            // the task here is to generate the next permutation of elements among the groups
+            // such that the constant-sum property is respected. We can (probably) use a variation
+            // of the next-lexicographic-permutation algorithm to generate this efficiently.
+            // see https://www.nayuki.io/page/next-lexicographical-permutation-algorithm
+            let mut next = prev.clone();
+            unimplemented!()
+        })
+        .map(move |compartments| self.packing_list(compartments))
     }
 
     /// Determine the best sleigh configuration for the given packages.
@@ -146,101 +230,22 @@ impl SleighConfigurations {
     ///
     /// Returns None if the `SleighConfigurations::new()` constructor does for the given packages,
     /// or if no legal configuration can be computed.
-    pub fn best(packages: Vec<Package>, use_trunk: bool) -> Option<Sleigh> {
-        let sc = SleighConfigurations::new(packages, use_trunk);
-        if sc.is_none() {
-            return None;
-        }
-        let mut sc = sc.unwrap();
-
-        let first = sc.next();
-        if first.is_none() {
-            return None;
-        }
-
-        let mut best = first.unwrap();
-        for sleigh in sc {
-            if sleigh.foot.len() < best.foot.len() {
-                best = sleigh;
-            } else if sleigh.foot.len() == best.foot.len() && sleigh.foot_qe() < best.foot_qe() {
-                best = sleigh;
-            }
-        }
-
-        Some(best)
-    }
-}
-
-/// Subtract `subtrahend` from `minuend` as a set, assuming they are both sorted ascending.
-fn list_set_subtract<T: PartialEq + Clone>(minuend: &Vec<T>, subtrahend: &Vec<T>) -> Vec<T> {
-    let mut ret: Vec<T> = Vec::new();
-    let mut subt_it = subtrahend.iter().peekable();
-    for item in minuend {
-        if Some(&item) == subt_it.peek() {
-            // it's a match! remove it.
-            subt_it.next();
-        } else {
-            // return this item.
-            ret.push(item.to_owned());
-        }
-    }
-    ret
-}
-
-impl Iterator for SleighConfigurations {
-    type Item = Sleigh;
-
-    fn next(&mut self) -> Option<Sleigh> {
-        let next_foot = self.foot_iter.next();
-        if next_foot.is_none() {
-            return None;
-        }
-        let next_foot = next_foot.unwrap();
-        // we have a unique foot loading, sorted ascending.
-        // Our items are also sorted ascending. This is handy.
-        // Now, we want to subtract the set of items in the footwell from the rest of our items.
-        let side_items = list_set_subtract(&self.packages, &next_foot);
-        // now we use this to get just the first remaining subset
-        let left_items = SummedSubsets::new(side_items.clone(), self.side_wt).next();
-        if left_items.is_none() {
-            return None;
-        }
-        let left_items = left_items.unwrap();
-
-        let right_items;
-        let trunk_items;
-
-        if !self.use_trunk {
-            right_items = list_set_subtract(&side_items, &left_items);
-            trunk_items = Vec::new();
-        } else {
-            // fill the trunk also
-            let right_rear_items = list_set_subtract(&side_items, &left_items);
-            let right_maybe = SummedSubsets::new(right_rear_items.clone(), self.side_wt).next();
-            if right_maybe.is_none() {
-                return None;
-            }
-            right_items = right_maybe.unwrap();
-            trunk_items = list_set_subtract(&right_rear_items, &right_items);
-        }
-
-        Some(Sleigh {
-            foot: next_foot,
-            left: left_items,
-            right: right_items,
-            trunk: trunk_items,
-        })
+    pub fn best<'a>(&'a self) -> Option<PackingList<'a>> {
+        unimplemented!()
     }
 }
 
 pub fn part1(input: &Path) -> Result<(), Error> {
     let packages: Vec<Package> = aoclib::parse(input)?.collect();
     let trunk = false;
-    let best =
-        SleighConfigurations::best(packages, trunk).ok_or(Error::NoAppropriateLoading(trunk))?;
+    let configurator =
+        Configurator::new(packages, trunk).ok_or(Error::NoAppropriateLoading(trunk))?;
+    let best = configurator
+        .best()
+        .ok_or(Error::NoAppropriateLoading(trunk))?;
     println!(
         "QE of best enganglement (no trunk):   {:12}",
-        best.foot_qe()
+        best.qe(Compartment::Footwell)
     );
     Ok(())
 }
@@ -248,11 +253,14 @@ pub fn part1(input: &Path) -> Result<(), Error> {
 pub fn part2(input: &Path) -> Result<(), Error> {
     let packages: Vec<Package> = aoclib::parse(input)?.collect();
     let trunk = true;
-    let best =
-        SleighConfigurations::best(packages, trunk).ok_or(Error::NoAppropriateLoading(trunk))?;
+    let configurator =
+        Configurator::new(packages, trunk).ok_or(Error::NoAppropriateLoading(trunk))?;
+    let best = configurator
+        .best()
+        .ok_or(Error::NoAppropriateLoading(trunk))?;
     println!(
         "QE of best enganglement (with trunk): {:12}",
-        best.foot_qe()
+        best.qe(Compartment::Footwell)
     );
     Ok(())
 }
@@ -269,44 +277,117 @@ pub enum Error {
 mod tests {
     use super::*;
 
+    fn compartments_from_groups(
+        footwell: &[Package],
+        left_saddle: &[Package],
+        right_saddle: &[Package],
+        trunk: &[Package],
+    ) -> Vec<Compartment> {
+        let mut compartments = Vec::with_capacity(
+            footwell.len() + left_saddle.len() + right_saddle.len() + trunk.len(),
+        );
+
+        let mut groups = [
+            footwell.to_vec(),
+            left_saddle.to_vec(),
+            right_saddle.to_vec(),
+            trunk.to_vec(),
+        ];
+        groups.iter_mut().for_each(|group| group.sort_unstable());
+
+        while let Some(idx_of_highest) = groups
+            .iter()
+            .map(|group| group.last())
+            .enumerate()
+            .filter_map(|(idx, maybe_top)| maybe_top.map(|top| (top, idx)))
+            .max()
+            .map(|(_, idx)| idx)
+        {
+            groups[idx_of_highest].pop();
+            compartments.push(idx_of_highest.try_into().unwrap());
+        }
+
+        compartments
+    }
+
+    #[test]
+    fn test_compartments_from_groups() {
+        assert_eq!(
+            compartments_from_groups(&[11, 9], &[10, 8, 2], &[7, 5, 4, 3, 1], &[]),
+            vec![
+                Compartment::Footwell,    // 11
+                Compartment::LeftSaddle,  // 10
+                Compartment::Footwell,    // 9
+                Compartment::LeftSaddle,  // 8
+                Compartment::RightSaddle, // 7
+                Compartment::RightSaddle, // 5
+                Compartment::RightSaddle, // 4
+                Compartment::RightSaddle, // 3
+                Compartment::LeftSaddle,  // 2
+                Compartment::RightSaddle, // 1
+            ]
+        );
+    }
+
+    #[test]
+    fn test_fill_compartments() {
+        let packages: Vec<Package> = (1..=5).chain(7..=11).collect();
+        let configurator = Configurator::new(packages, false).unwrap();
+        assert_eq!(
+            configurator.fill_compartments().unwrap(),
+            compartments_from_groups(&[11, 9], &[10, 8, 2], &[7, 5, 4, 3, 1], &[])
+        );
+    }
+
     #[test]
     fn test_sleigh_example() {
-        let sleigh = Sleigh {
-            foot: vec![11, 9],
-            left: vec![10, 8, 2],
-            right: vec![7, 5, 4, 3, 1],
-            trunk: vec![],
+        let configurator = Configurator::new((1..=5).chain(7..=11).collect(), false).unwrap();
+        let packing_list = PackingList {
+            configurator: &configurator,
+            compartments: compartments_from_groups(&[11, 9], &[10, 8, 2], &[7, 5, 4, 3, 1], &[]),
         };
 
-        assert_eq!(sleigh.foot_wt(), sleigh.left_wt());
-        assert_eq!(sleigh.foot_wt(), sleigh.right_wt());
-        assert_eq!(sleigh.foot_qe(), 99);
+        assert_eq!(
+            packing_list.weight(Compartment::Footwell),
+            packing_list.weight(Compartment::LeftSaddle)
+        );
+        assert_eq!(
+            packing_list.weight(Compartment::Footwell),
+            packing_list.weight(Compartment::RightSaddle)
+        );
+        assert_eq!(packing_list.qe(Compartment::Footwell), 99);
 
-        let sleigh = Sleigh {
-            foot: vec![10, 9, 1],
-            left: vec![11, 7, 2],
-            right: vec![8, 5, 4, 3],
-            trunk: vec![],
+        let packing_list = PackingList {
+            configurator: &configurator,
+            compartments: compartments_from_groups(&[10, 9, 1], &[11, 7, 2], &[8, 5, 4, 3], &[]),
         };
 
-        assert_eq!(sleigh.foot_wt(), sleigh.left_wt());
-        assert_eq!(sleigh.foot_wt(), sleigh.right_wt());
-        assert_eq!(sleigh.foot_qe(), 90);
+        assert_eq!(
+            packing_list.weight(Compartment::Footwell),
+            packing_list.weight(Compartment::LeftSaddle)
+        );
+        assert_eq!(
+            packing_list.weight(Compartment::Footwell),
+            packing_list.weight(Compartment::RightSaddle)
+        );
+        assert_eq!(packing_list.qe(Compartment::Footwell), 90);
     }
 
     #[test]
     fn test_example() {
         let items = vec![1, 2, 3, 4, 5, 7, 8, 9, 10, 11];
-        let best = SleighConfigurations::best(items, false).unwrap();
+        let configurator = Configurator::new(items, false).unwrap();
+        let best = configurator.best().unwrap();
         println!("Best sleigh configuration: {:?}", best);
-        assert_eq!(best.foot_qe(), 99);
+        assert_eq!(best.qe(Compartment::Footwell), 99);
     }
 
     #[test]
     fn test_example_with_trunk() {
         let items = vec![1, 2, 3, 4, 5, 7, 8, 9, 10, 11];
-        let best = SleighConfigurations::best(items, true).unwrap();
+        let configurator = Configurator::new(items, true).unwrap();
+        let best = configurator.best().unwrap();
         println!("Best sleigh configuration: {:?}", best);
-        assert_eq!(best.foot_qe(), 44);
+        assert_eq!(best.qe(Compartment::Footwell), 44);
     }
 }
