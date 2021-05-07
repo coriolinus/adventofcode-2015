@@ -51,7 +51,10 @@
 //! Had there been two configurations with only two packages in the first group, the one with the
 //! smaller quantum entanglement would be chosen.
 
-pub mod summed_subsets;
+use std::path::Path;
+
+mod summed_subsets;
+
 use summed_subsets::SummedSubsets;
 
 pub type Package = u16;
@@ -67,31 +70,19 @@ pub struct Sleigh {
 impl Sleigh {
     /// Quantum Entanglement of the footwell of this sleigh.
     pub fn foot_qe(&self) -> u64 {
-        self.foot
-            .iter()
-            .map(|&x| x as u64)
-            .fold(1, |acc, item| acc * item)
+        self.foot.iter().map(|&x| x as u64).product()
     }
 
     pub fn foot_wt(&self) -> u16 {
-        self.foot
-            .iter()
-            .map(|&x| x as u16)
-            .fold(0, |acc, item| acc + item)
+        self.foot.iter().map(|&x| x as u16).sum()
     }
 
     pub fn left_wt(&self) -> u16 {
-        self.left
-            .iter()
-            .map(|&x| x as u16)
-            .fold(0, |acc, item| acc + item)
+        self.left.iter().map(|&x| x as u16).sum()
     }
 
     pub fn right_wt(&self) -> u16 {
-        self.right
-            .iter()
-            .map(|&x| x as u16)
-            .fold(0, |acc, item| acc + item)
+        self.right.iter().map(|&x| x as u16).sum()
     }
 }
 
@@ -122,7 +113,7 @@ impl SleighConfigurations {
     /// Returns `None` if the total weight can't be evenly divided by 3, or if the biggest package
     /// is bigger than 1/3 of the total weight, because in those circumstances no valid sleigh
     /// configurations can be generated.
-    pub fn new(packages: Vec<Package>, use_trunk: bool) -> Option<SleighConfigurations> {
+    pub fn new(mut packages: Vec<Package>, use_trunk: bool) -> Option<SleighConfigurations> {
         let spaces = if use_trunk { 4 } else { 3 };
         let total = packages.iter().fold(0, |acc, item| acc + item);
         if total % spaces != 0 {
@@ -130,7 +121,6 @@ impl SleighConfigurations {
             return None;
         }
 
-        let mut packages = packages;
         packages.sort();
 
         if let Some(biggest) = packages.last() {
@@ -241,6 +231,38 @@ impl Iterator for SleighConfigurations {
             trunk: trunk_items,
         })
     }
+}
+
+pub fn part1(input: &Path) -> Result<(), Error> {
+    let packages: Vec<Package> = aoclib::parse(input)?.collect();
+    let trunk = false;
+    let best =
+        SleighConfigurations::best(packages, trunk).ok_or(Error::NoAppropriateLoading(trunk))?;
+    println!(
+        "QE of best enganglement (no trunk):   {:12}",
+        best.foot_qe()
+    );
+    Ok(())
+}
+
+pub fn part2(input: &Path) -> Result<(), Error> {
+    let packages: Vec<Package> = aoclib::parse(input)?.collect();
+    let trunk = true;
+    let best =
+        SleighConfigurations::best(packages, trunk).ok_or(Error::NoAppropriateLoading(trunk))?;
+    println!(
+        "QE of best enganglement (with trunk): {:12}",
+        best.foot_qe()
+    );
+    Ok(())
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+    #[error("failed to find an appropriate loading (trunk: {0})")]
+    NoAppropriateLoading(bool),
 }
 
 #[cfg(test)]

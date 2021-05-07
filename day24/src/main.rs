@@ -1,44 +1,52 @@
-use std::str::FromStr;
+use aoclib::{config::Config, website::get_input};
+use day24::{part1, part2};
 
-use util::get_multiline_input;
+use color_eyre::eyre::Result;
+use std::path::PathBuf;
+use structopt::StructOpt;
 
-use day24::{Package, SleighConfigurations};
+const DAY: u8 = 24;
 
-fn main() {
-    let lines = get_multiline_input("Enter your packages here, one per line, EOF-term'd:").unwrap();
+#[derive(StructOpt, Debug)]
+struct RunArgs {
+    /// input file
+    #[structopt(long, parse(from_os_str))]
+    input: Option<PathBuf>,
 
-    let mut packages = Vec::new();
-    for line in lines.split("\n") {
-        let line = line.trim();
-        if !line.is_empty() {
-            if let Ok(r) = Package::from_str(line) {
-                packages.push(r);
-            } else {
-                println!("Could not parse \"{}\" as Package; aborting", line);
-                packages = Vec::new();
-                break;
+    /// skip part 1
+    #[structopt(long = "no-part1")]
+    no_part1: bool,
+
+    /// run part 2
+    #[structopt(long)]
+    part2: bool,
+}
+
+impl RunArgs {
+    fn input(&self) -> Result<PathBuf> {
+        match self.input {
+            None => {
+                let config = Config::load()?;
+                // this does nothing if the input file already exists, but
+                // simplifies the workflow after cloning the repo on a new computer
+                get_input(&config, 2015, DAY)?;
+                Ok(config.input_for(2015, DAY))
             }
+            Some(ref path) => Ok(path.clone()),
         }
     }
+}
 
-    if packages.len() > 0 {
-        if let Some(best) = SleighConfigurations::best(packages.clone(), false) {
-            println!("Best config: {:?}", best);
-            println!(" with QE: {:?}", best.foot_qe());
-        } else {
-            println!(
-                "Could not determine an appropriate loading for the following packages: {:?}",
-                packages
-            );
-        }
-        if let Some(best) = SleighConfigurations::best(packages.clone(), true) {
-            println!("Best config (with trunk): {:?}", best);
-            println!(" with QE: {:?}", best.foot_qe());
-        } else {
-            println!(
-                "Could not determine an appropriate loading for the following packages: {:?}",
-                packages
-            );
-        }
+fn main() -> Result<()> {
+    color_eyre::install()?;
+    let args = RunArgs::from_args();
+    let input_path = args.input()?;
+
+    if !args.no_part1 {
+        part1(&input_path)?;
     }
+    if args.part2 {
+        part2(&input_path)?;
+    }
+    Ok(())
 }
