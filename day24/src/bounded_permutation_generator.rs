@@ -1,5 +1,4 @@
 use crate::Package;
-use core::borrow;
 use std::{
     cell::{Cell, RefCell},
     cmp::Ordering,
