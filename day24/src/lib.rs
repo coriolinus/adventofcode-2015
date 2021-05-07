@@ -51,8 +51,9 @@
 //! Had there been two configurations with only two packages in the first group, the one with the
 //! smaller quantum entanglement would be chosen.
 
+use genawaiter::{rc::gen, yield_};
 use std::{
-    cmp::Reverse,
+    cmp::{Ordering, Reverse},
     convert::{TryFrom, TryInto},
     path::Path,
 };
@@ -208,18 +209,15 @@ impl Configurator {
     }
 
     /// Generate a series of packing lists satisfying the balance requirements.
-    fn generate_packing_lists<'a>(&'a self) -> impl Iterator<Item = PackingList<'a>> {
-        let use_trunk = self.use_trunk;
-        let side_weight = self.side_weight;
-        std::iter::successors(self.fill_compartments(), move |prev| {
-            // the task here is to generate the next permutation of elements among the groups
-            // such that the constant-sum property is respected. We can (probably) use a variation
-            // of the next-lexicographic-permutation algorithm to generate this efficiently.
-            // see https://www.nayuki.io/page/next-lexicographical-permutation-algorithm
-            let mut next = prev.clone();
-            unimplemented!()
-        })
-        .map(move |compartments| self.packing_list(compartments))
+    fn generate_packing_lists<'a, 'b: 'a>(&'b self) -> PackingGenerator<'a> {
+        // let mut configuration = vec![None; self.packages.len()];
+        unimplemented!()
+        // PackingGenerator {
+        //     packages: &self.packages,
+        //     configuration,
+        //     package_idx: 0,
+        //     target_weight: Package,
+        // }
     }
 
     /// Determine the best sleigh configuration for the given packages.
@@ -232,6 +230,93 @@ impl Configurator {
     /// or if no legal configuration can be computed.
     pub fn best<'a>(&'a self) -> Option<PackingList<'a>> {
         unimplemented!()
+    }
+}
+
+/// A `PackingGenerator` efficiently generates permutations of packages with the required sum.
+///
+/// # Method of operation
+///
+/// The `packages` slice is a reverse-sorted list of available packages. `package_idx` is an index
+/// into that slice.
+///
+/// `queue` is a mutable reference to a scratchpad vector, which can be passed to recursive elements
+/// as necessary.
+///
+/// At each level of recursion, there is a loop considering each index in turn. For each iteration
+/// of that loop, the generator recursively attempts to produce a set summing to the desired target.
+///
+/// The recursion provides efficient backtracking.
+///
+/// Recursion termination conditions:
+///
+/// - if `idx >= self.packages.len()`, we have not achieved a sufficient sum; unwind
+/// - if we have discovered a set of packages with the desired size, increment `package_idx`, clone the scratchpad and return
+pub struct PackingGenerator<'a> {
+    packages: &'a [Package],
+    queue: &'a mut Vec<Package>,
+}
+
+impl<'a> PackingGenerator<'a> {
+    /// Create a child generator which can be used to recursively seek solutions.
+    fn child<'b>(&'a mut self) -> PackingGenerator<'b>
+    where
+        'a: 'b,
+    {
+        PackingGenerator {
+            packages: self.packages,
+            queue: self.queue,
+        }
+    }
+
+    /// Recursively seek the next valid package set.
+    ///
+    /// Allocates a Box for each recursion. Copies a vector once for each produced solution.
+    ///
+    /// Note that it returns a `Box<dyn Iterator>` instead of simply `impl Iterator`. This works
+    /// around a rustc limitation: Rust has trouble with recursive opaque types unless you box them
+    /// up in this way.
+    fn generate(
+        &'a mut self,
+        initial_idx: usize,
+        target_sum: Package,
+    ) -> Box<dyn '_ + Iterator<Item = Vec<Package>>> {
+        Box::new(
+            gen!({
+                for idx in initial_idx..self.packages.len() {
+                    let package = self.packages[idx];
+                    match package.cmp(&target_sum) {
+                        Ordering::Greater => {
+                            // As the packages list is reverse-sorted, we know
+                            // we can't possibly produce any more legal package
+                            // sets
+                            return;
+                        }
+                        Ordering::Equal => {
+                            // we've identified a legal package set. We're going
+                            // to return it, but preserving all struct state so
+                            // that we can resume from this point without issue.
+                            self.queue.push(self.packages[idx]);
+                            yield_!(self.queue.clone());
+                            self.queue.pop();
+                        }
+                        Ordering::Less => {
+                            // recursively try different subsets
+                            let child_target_sum = target_sum - package;
+                            self.queue.push(self.packages[idx]);
+                            {
+                                let mut child = self.child();
+                                for solution in child.generate(idx + 1, child_target_sum) {
+                                    yield_!(solution);
+                                }
+                            }
+                            self.queue.pop();
+                        }
+                    }
+                }
+            })
+            .into_iter(),
+        )
     }
 }
 
