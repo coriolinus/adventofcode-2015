@@ -143,7 +143,7 @@ mod tests {
     }
 
     #[test]
-    fn test_example() {
+    fn test_example_no_trunk() {
         let items = vec![1, 2, 3, 4, 5, 7, 8, 9, 10, 11];
         let configurator = Configurator::new(items, false).unwrap();
         let best = configurator.best().unwrap();

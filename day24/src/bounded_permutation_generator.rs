@@ -1,9 +1,12 @@
-use crate::Package;
 use std::{
     cell::{Cell, RefCell},
     cmp::Ordering,
+    ops::Sub,
     rc::Rc,
 };
+
+pub trait Permutable: Copy + Ord + Sub<Output = Self> {}
+impl<T: Copy + Ord + Sub<Output = Self>> Permutable for T {}
 
 /// A `BoundedPermutationGenerator` efficiently generates selections of packages having the required sum.
 ///
@@ -28,21 +31,25 @@ use std::{
 // Note the interior mutability here. It's standing in for what, in a more generator-friendly world,
 // would be mutable local stack variables. However, we don't really have much better option here than
 // to overrule the mutability portion of the borrow checker.
-pub struct BoundedPermutationGenerator {
-    packages: Rc<Vec<Package>>,
-    queue: Rc<RefCell<Vec<Package>>>,
+#[derive(Debug)]
+pub struct BoundedPermutationGenerator<T> {
+    packages: Rc<Vec<T>>,
+    queue: Rc<RefCell<Vec<T>>>,
     package_idx: Cell<usize>,
-    target_sum: Package,
-    child: RefCell<Option<Box<BoundedPermutationGenerator>>>,
+    target_sum: T,
+    child: RefCell<Option<Box<BoundedPermutationGenerator<T>>>>,
 }
 
-impl BoundedPermutationGenerator {
+impl<T> BoundedPermutationGenerator<T>
+where
+    T: Permutable,
+{
     /// Create a new `BoundedPermutationGenerator` from a cheaply-cloneable sorted vec of packages.
     ///
     /// # Panic
     ///
     /// Panics if `packages` is not reverse-sorted.
-    pub fn new_rc(packages: Rc<Vec<Package>>, target_sum: Package) -> BoundedPermutationGenerator {
+    pub fn new_rc(packages: Rc<Vec<T>>, target_sum: T) -> BoundedPermutationGenerator<T> {
         debug_assert!(packages.windows(2).all(|window| window[1] <= window[0]));
         BoundedPermutationGenerator {
             packages,
@@ -54,7 +61,7 @@ impl BoundedPermutationGenerator {
     }
 
     /// Create a child generator which can be used to recursively seek solutions.
-    fn child(&self) -> Box<BoundedPermutationGenerator> {
+    fn child(&self) -> Box<BoundedPermutationGenerator<T>> {
         let package_idx = Cell::new(self.package_idx.get() + 1);
         let target_sum = self.target_sum - self.packages[self.package_idx.get()];
 
@@ -72,7 +79,7 @@ impl BoundedPermutationGenerator {
     }
 
     /// Recursively seek the next valid package set.
-    fn next_solution(&self) -> Option<Vec<Package>> {
+    fn next_solution(&self) -> Option<Vec<T>> {
         let mut solution = None;
         while solution.is_none() {
             let borrowed_child = self.child.borrow();
@@ -90,10 +97,8 @@ impl BoundedPermutationGenerator {
 
                     match package.cmp(&self.target_sum) {
                         Ordering::Greater => {
-                            // as the packages list is reverse-sorted, we know
-                            // we can't possibly produce any more legal package
-                            // sets from this iteration.
-                            break;
+                            // no luck; try the next one
+                            self.incr_idx();
                         }
                         Ordering::Equal => {
                             // we've identified a legal package set. We're going
@@ -122,7 +127,6 @@ impl BoundedPermutationGenerator {
                         Some(inner_solution) => solution = Some(inner_solution),
                         // afterwards, clean up.
                         None => {
-                            std::mem::drop(child);
                             std::mem::drop(borrowed_child);
                             self.child.replace(None);
                             self.queue.borrow_mut().pop();
@@ -136,10 +140,36 @@ impl BoundedPermutationGenerator {
     }
 }
 
-impl Iterator for BoundedPermutationGenerator {
-    type Item = Vec<Package>;
+impl<T> Iterator for BoundedPermutationGenerator<T>
+where
+    T: Permutable,
+{
+    type Item = Vec<T>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.next_solution()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_permutations_8() {
+        let values = Rc::new(vec![5, 3, 2, 1]);
+        assert_eq!(
+            BoundedPermutationGenerator::new_rc(values, 8).collect::<Vec<_>>(),
+            vec![vec![5, 3], vec![5, 2, 1]],
+        );
+    }
+
+    #[test]
+    fn test_permutations_6() {
+        let values = Rc::new(vec![5, 3, 2, 1]);
+        assert_eq!(
+            BoundedPermutationGenerator::new_rc(values, 6).collect::<Vec<_>>(),
+            vec![vec![5, 1], vec![3, 2, 1]],
+        );
     }
 }

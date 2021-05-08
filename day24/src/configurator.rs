@@ -5,6 +5,14 @@ use crate::{
     PackingList,
 };
 
+type Group3 = (Rc<Vec<Package>>, Rc<Vec<Package>>, Rc<Vec<Package>>);
+type Group4 = (
+    Rc<Vec<Package>>,
+    Rc<Vec<Package>>,
+    Rc<Vec<Package>>,
+    Rc<Vec<Package>>,
+);
+
 /// Generator of legal sleigh configurations. Main entry point to this module.
 ///
 /// Note: This only handles the case that all of the `Package`s have unique sizes.
@@ -45,7 +53,7 @@ impl Configurator {
         })
     }
 
-    fn packing_list<'a>(&'a self, compartments: Vec<Compartment>) -> PackingList<'a> {
+    fn packing_list(&self, compartments: Vec<Compartment>) -> PackingList {
         PackingList {
             configurator: &self,
             compartments,
@@ -55,9 +63,7 @@ impl Configurator {
     /// Generate a triplet of packing lists.
     ///
     /// The first two lists share the same sum. The last is whatever is left.
-    fn generate_groups_3(
-        &self,
-    ) -> impl '_ + Iterator<Item = (Rc<Vec<Package>>, Rc<Vec<Package>>, Rc<Vec<Package>>)> {
+    fn generate_groups_3(&self) -> impl '_ + Iterator<Item = Group3> {
         let package_set: HashSet<_> = self.packages.iter().copied().collect();
         let side_weight = self.side_weight;
         BoundedPermutationGenerator::new_rc(self.packages.clone(), self.side_weight)
@@ -94,17 +100,7 @@ impl Configurator {
     /// Generate a quadruplet of packing lists.
     ///
     /// The first three lists share the same sum.
-    fn generate_groups_4(
-        &self,
-    ) -> impl '_
-           + Iterator<
-        Item = (
-            Rc<Vec<Package>>,
-            Rc<Vec<Package>>,
-            Rc<Vec<Package>>,
-            Rc<Vec<Package>>,
-        ),
-    > {
+    fn generate_groups_4(&self) -> impl '_ + Iterator<Item = Group4> {
         self.generate_groups_3()
             .flat_map(move |(footwell, left_saddle, leftovers)| {
                 let leftovers_set: HashSet<_> = leftovers.iter().copied().collect();
@@ -131,19 +127,7 @@ impl Configurator {
             })
     }
 
-    fn generate_groups(
-        &self,
-    ) -> Box<
-        dyn '_
-            + Iterator<
-                Item = (
-                    Rc<Vec<Package>>,
-                    Rc<Vec<Package>>,
-                    Rc<Vec<Package>>,
-                    Rc<Vec<Package>>,
-                ),
-            >,
-    > {
+    fn generate_groups(&self) -> Box<dyn '_ + Iterator<Item = Group4>> {
         if self.use_trunk {
             Box::new(self.generate_groups_4())
         } else {
