@@ -65,6 +65,15 @@
 //! example, you're missing the one at `7,1` that would come before `6,2`. But, it should be enough
 //! to let your-- oh, it's time for lunch! Bye!" The call disconnects.
 
+use std::path::Path;
+
+#[derive(Debug, parse_display::Display, parse_display::FromStr)]
+#[display("To continue, please consult the code grid in the manual.  Enter the code at row {row}, column {column}.")]
+struct Input {
+    row: usize,
+    column: usize,
+}
+
 /// Generate the correct list index of the requested row and column.
 ///
 /// Note that row and column indices start at 1. If given 0 indices, the function returns 0.
@@ -117,6 +126,20 @@ impl Default for CodeGen {
     fn default() -> CodeGen {
         CodeGen::new(20151125)
     }
+}
+
+pub fn part1(input: &Path) -> Result<(), Error> {
+    for Input { row, column } in aoclib::parse(input)? {
+        let mut cg = CodeGen::default();
+        println!("Code at ({}, {}): {}", row, column, cg.get(row, column));
+    }
+    Ok(())
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
 }
 
 #[cfg(test)]
