@@ -176,6 +176,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "bounded-permutation-generation"
+version = "0.1.0"
+dependencies = [
+ "thiserror",
+]
+
+[[package]]
 name = "bumpalo"
 version = "3.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
