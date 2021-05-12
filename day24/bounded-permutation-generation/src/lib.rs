@@ -162,7 +162,7 @@ where
     fn next_solution_for(&mut self, compartment: Compartment) -> Option<Vec<Option<Compartment>>> {
         let mut solution = None;
         while solution.is_none() {
-            self.child = match self.child.take() {
+            match self.child {
                 None => {
                     // no child generator means that we should compare indices at this level.
                     if self.package_idx >= self.packages().len() {
@@ -187,7 +187,6 @@ where
                         Ordering::Greater => {
                             // no luck; try the next one
                             self.package_idx += 1;
-                            None
                         }
                         Ordering::Equal => {
                             // we've identified a legal package set. We're going
@@ -195,27 +194,25 @@ where
                             // that we can resume from this point without issue.
                             self.compartment_layout_mut()[self.package_idx] = Some(compartment);
                             solution = Some(self.compartment_layout().to_vec());
-                            None
                         }
                         Ordering::Less => {
                             // recursively try different subsets
                             self.compartment_layout_mut()[self.package_idx] = Some(compartment);
-                            Some(self.child())
+                            self.child = Some(self.child());
                         }
                     }
                 }
-                Some(mut child) => {
+                Some(ref mut child) => {
                     // can't use `map` here because the borrow checker gets upset about the lifetime
                     // as `child` moves through the closure.
                     match child.next_solution_for(compartment) {
                         Some(inner_solution) => {
                             // while the child produces solutions, just pass them along.
                             solution = Some(inner_solution);
-                            Some(child)
                         }
                         // If next_solution_for produces None, then `next_child` becomes None, engaging
                         // cleanup once the loop cycles through to the next iteration.
-                        None => None,
+                        None => self.child = None,
                     }
                 }
             };
