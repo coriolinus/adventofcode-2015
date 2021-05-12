@@ -3,6 +3,8 @@ use std::{cmp::Ordering, marker::PhantomData, ops::Sub};
 pub trait Permutable: Copy + Ord + Sub<Output = Self> {}
 impl<T: Copy + Ord + Sub<Output = Self>> Permutable for T {}
 
+type Solution<Compartment> = Vec<Option<Compartment>>;
+
 /// A `BoundedPermutationGenerator` efficiently generates selections of packages having the required sum.
 ///
 /// # Method of operation
@@ -101,11 +103,16 @@ where
     /// Recursively generate the next valid layout for members of this compartment.
     ///
     /// Each solution requires an allocation and data-copying proportional to `self.compartment_layout`.
-    pub fn next_solution_for(
-        &mut self,
-        compartment: Compartment,
-    ) -> Option<Vec<Option<Compartment>>> {
+    pub fn next_solution_for(&mut self, compartment: Compartment) -> Option<Solution<Compartment>> {
         self.inner.next_solution_for(compartment)
+    }
+
+    /// Iterate over the remaining solutions of this generator.
+    pub fn iter<'b>(&'b mut self, compartment: Compartment) -> Iter<'a, 'b, T, Compartment> {
+        Iter {
+            bpg: self,
+            compartment,
+        }
     }
 }
 
@@ -217,16 +224,26 @@ where
     }
 }
 
-// impl<T> Iterator for BoundedPermutationGenerator<T>
-// where
-//     T: Permutable,
-// {
-//     type Item = Vec<T>;
+pub struct Iter<'a, 'b, T, Compartment>
+where
+    'a: 'b,
+{
+    bpg: &'b mut BoundedPermutationGenerator<'a, T, Compartment>,
+    compartment: Compartment,
+}
 
-//     fn next(&mut self) -> Option<Self::Item> {
-//         self.next_solution_for()
-//     }
-// }
+impl<'a, 'b, T, Compartment> Iterator for Iter<'a, 'b, T, Compartment>
+where
+    'a: 'b,
+    T: Permutable,
+    Compartment: Copy + Eq,
+{
+    type Item = Solution<Compartment>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.bpg.next_solution_for(self.compartment)
+    }
+}
 
 #[derive(Debug, PartialEq, Eq, thiserror::Error)]
 pub enum Error {
@@ -292,5 +309,21 @@ mod test {
         assert_eq!(solution, vec![Some(0), Some(1), Some(1), None]);
 
         assert!(bpg.next_solution_for(1).is_none());
+    }
+
+    #[test]
+    fn test_iteration_6() {
+        let values = vec![5, 3, 2, 1];
+        let mut compartment_layout = vec![None; values.len()];
+        let mut bpg =
+            BoundedPermutationGenerator::new(&values, &mut compartment_layout, 6).unwrap();
+
+        let expect_solutions = vec![
+            vec![Some(0), None, None, Some(0)],
+            vec![None, Some(0), Some(0), Some(0)],
+        ];
+
+        let solutions = bpg.iter(0).collect::<Vec<_>>();
+        assert_eq!(solutions, expect_solutions);
     }
 }
