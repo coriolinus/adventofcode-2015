@@ -1,36 +1,29 @@
-use std::{cmp::Reverse, collections::HashSet, rc::Rc};
+use std::cmp::Reverse;
 
 use crate::{
-    packing_list::compartments_from_groups, BoundedPermutationGenerator, Compartment, Package,
-    PackingList,
+    bounded_permutation_generator::BoundedPermutationGenerator, Compartment, Package, PackingList,
 };
 
-type Group3 = (Rc<Vec<Package>>, Rc<Vec<Package>>, Rc<Vec<Package>>);
-type Group4 = (
-    Rc<Vec<Package>>,
-    Rc<Vec<Package>>,
-    Rc<Vec<Package>>,
-    Rc<Vec<Package>>,
-);
+type Solution = Vec<Option<Compartment>>;
 
 /// Generator of legal sleigh configurations. Main entry point to this module.
 ///
 /// Note: This only handles the case that all of the `Package`s have unique sizes.
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Configurator {
+pub struct Configurator<'a> {
     // always reverse-sorted
-    pub(crate) packages: Rc<Vec<Package>>,
+    pub(crate) packages: &'a [Package],
     pub(crate) side_weight: Package, // weight for each side
     pub(crate) use_trunk: bool,
 }
 
-impl Configurator {
+impl<'a> Configurator<'a> {
     /// Construct a new `SleighConfigurations` generator.
     ///
     /// Returns `None` if the total weight can't be evenly divided by 3, or if the biggest package
     /// is bigger than 1/3 of the total weight, because in those circumstances no valid sleigh
     /// configurations can be generated.
-    pub fn new(mut packages: Vec<Package>, use_trunk: bool) -> Option<Configurator> {
+    pub fn new(packages: &mut [Package], use_trunk: bool) -> Option<Configurator> {
         let spaces = if use_trunk { 4 } else { 3 };
         let total: Package = packages.iter().sum();
         if total % spaces != 0 {
@@ -47,110 +40,97 @@ impl Configurator {
         }
 
         Some(Configurator {
-            packages: Rc::new(packages),
+            packages,
             side_weight,
             use_trunk,
         })
     }
 
-    fn packing_list(&self, compartments: Vec<Compartment>) -> PackingList {
+    fn packing_list(&self, compartments: Solution) -> PackingList {
         PackingList {
             configurator: &self,
             compartments,
         }
     }
 
-    /// Generate a triplet of packing lists.
+    /// Generate partial solutions for which the trunk is not considered.
     ///
-    /// The first two lists share the same sum. The last is whatever is left.
-    fn generate_groups_3(&self) -> impl '_ + Iterator<Item = Group3> {
-        let package_set: HashSet<_> = self.packages.iter().copied().collect();
-        let side_weight = self.side_weight;
-        BoundedPermutationGenerator::new_rc(self.packages.clone(), self.side_weight)
-            .flat_map(move |footwell| {
-                let footwell = Rc::new(footwell);
-                let footwell_set = footwell.iter().copied().collect();
-
-                // compute the packages still available in the format required by BPG
-                let diff_iter = package_set.difference(&footwell_set).copied();
-                let mut still_available: Vec<_> = diff_iter.clone().collect();
-                still_available.sort_unstable_by_key(|package| Reverse(*package));
-                let still_available_set: HashSet<_> = diff_iter.collect();
-
-                BoundedPermutationGenerator::new_rc(Rc::new(still_available), side_weight).map(
-                    move |left_saddle| {
-                        let left_saddle = Rc::new(left_saddle);
-                        let left_saddle_set = left_saddle.iter().copied().collect();
-
-                        let mut leftovers: Vec<_> = still_available_set
-                            .difference(&left_saddle_set)
-                            .copied()
-                            .collect();
-                        leftovers.sort_unstable_by_key(|package| Reverse(*package));
-
-                        (footwell.clone(), left_saddle, Rc::new(leftovers))
-                    },
+    /// In these solutions the footwell is assigned. The sides have not been fully assigned, but
+    /// it has been demonstrated that at least one assignment is possible for the sides.
+    ///
+    /// The trunk is not used.
+    fn generate_footwell_no_trunk(&self) -> impl '_ + Iterator<Item = Solution> {
+        BoundedPermutationGenerator::new(&self.packages, self.side_weight)
+            .expect("sort guaranteed by the constructor")
+            .into_iter(Compartment::Footwell)
+            .filter_map(move |partial_solution| {
+                // we need to ensure that it is possible to generate at least one full solution from
+                // this partial solution, but we don't need to bother actually generating more than
+                // one.
+                BoundedPermutationGenerator::from_solution(
+                    &self.packages,
+                    self.side_weight,
+                    partial_solution,
                 )
-            })
-            .filter(|(footwell, left_saddle, _)| {
-                footwell.iter().sum::<Package>() == left_saddle.iter().sum::<Package>()
+                .expect("sort guaranteed by the constructor")
+                .into_iter(Compartment::LeftSaddle)
+                .next()
             })
     }
 
-    /// Generate a quadruplet of packing lists.
+    /// Generate partial solutions for which the trunk is considered.
     ///
-    /// The first three lists share the same sum.
-    fn generate_groups_4(&self) -> impl '_ + Iterator<Item = Group4> {
-        self.generate_groups_3()
-            .flat_map(move |(footwell, left_saddle, leftovers)| {
-                let leftovers_set: HashSet<_> = leftovers.iter().copied().collect();
-
-                BoundedPermutationGenerator::new_rc(leftovers, self.side_weight).map(
-                    move |right_saddle| {
-                        let footwell = footwell.clone();
-                        let left_saddle = left_saddle.clone();
-                        let right_saddle = Rc::new(right_saddle);
-                        let right_saddle_set = right_saddle.iter().copied().collect();
-
-                        let mut trunk: Vec<_> = leftovers_set
-                            .difference(&right_saddle_set)
-                            .copied()
-                            .collect();
-                        trunk.sort_unstable_by_key(|package| Reverse(*package));
-
-                        (footwell, left_saddle, right_saddle, Rc::new(trunk))
-                    },
+    /// In these solutions the footwell is assigned. The sides have not been fully assigned, but
+    /// it has been demonstrated that at least one assignment is possible for the sides.
+    ///
+    /// The trunk is used.
+    fn generate_footwell_with_trunk(&self) -> impl '_ + Iterator<Item = Solution> {
+        self.generate_footwell_no_trunk()
+            .filter_map(move |partial_solution| {
+                // we need to ensure that it is possible to generate at least one full solution from
+                // this partial solution, but we don't need to bother actually generating more than
+                // one.
+                BoundedPermutationGenerator::from_solution(
+                    &self.packages,
+                    self.side_weight,
+                    partial_solution,
                 )
-            })
-            .filter(|(_, left_saddle, right_saddle, _)| {
-                left_saddle.iter().sum::<Package>() == right_saddle.iter().sum::<Package>()
+                .expect("sort guaranteed by the constructor")
+                .into_iter(Compartment::RightSaddle)
+                .next()
             })
     }
 
-    fn generate_groups(&self) -> Box<dyn '_ + Iterator<Item = Group4>> {
+    /// Generate complete solutions, with or without the trunk as appropriate.
+    ///
+    /// Note that not all complete solutions are generated. The footwell's solutions are exhaustively
+    /// generated, but all other compartments only have demonstration solutions.
+    fn generate_footwell(&self) -> Box<dyn '_ + Iterator<Item = Solution>> {
         if self.use_trunk {
-            Box::new(self.generate_groups_4())
+            Box::new(self.generate_footwell_with_trunk().map(|mut partial| {
+                partial.iter_mut().for_each(|item| {
+                    if item.is_none() {
+                        *item = Some(Compartment::Trunk)
+                    }
+                });
+                partial
+            }))
         } else {
-            Box::new(
-                self.generate_groups_3()
-                    .map(|(footwell, left_saddle, right_saddle)| {
-                        (footwell, left_saddle, right_saddle, Rc::new(Vec::new()))
-                    }),
-            )
+            Box::new(self.generate_footwell_no_trunk().map(|mut partial| {
+                partial.iter_mut().for_each(|item| {
+                    if item.is_none() {
+                        *item = Some(Compartment::RightSaddle)
+                    }
+                });
+                partial
+            }))
         }
     }
 
     /// Generate a sequence of packing lists satisfying the given balance constraints.
     pub fn packing_lists(&self) -> impl '_ + Iterator<Item = PackingList> {
-        self.generate_groups()
-            .map(move |(footwell, left_saddle, right_saddle, trunk)| {
-                self.packing_list(compartments_from_groups(
-                    footwell.as_slice(),
-                    left_saddle.as_slice(),
-                    right_saddle.as_slice(),
-                    trunk.as_slice(),
-                ))
-            })
+        self.generate_footwell()
+            .map(move |solution| self.packing_list(solution))
     }
 
     /// Determine the best sleigh configuration for the given packages.

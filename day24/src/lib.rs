@@ -66,10 +66,10 @@ pub use crate::{
 pub type Package = u16;
 
 pub fn part1(input: &Path) -> Result<(), Error> {
-    let packages: Vec<Package> = aoclib::parse(input)?.collect();
+    let mut packages: Vec<Package> = aoclib::parse(input)?.collect();
     let trunk = false;
     let configurator =
-        Configurator::new(packages, trunk).ok_or(Error::NoAppropriateLoading(trunk))?;
+        Configurator::new(&mut packages, trunk).ok_or(Error::NoAppropriateLoading(trunk))?;
     let best = configurator
         .best()
         .ok_or(Error::NoAppropriateLoading(trunk))?;
@@ -81,10 +81,10 @@ pub fn part1(input: &Path) -> Result<(), Error> {
 }
 
 pub fn part2(input: &Path) -> Result<(), Error> {
-    let packages: Vec<Package> = aoclib::parse(input)?.collect();
+    let mut packages: Vec<Package> = aoclib::parse(input)?.collect();
     let trunk = true;
     let configurator =
-        Configurator::new(packages, trunk).ok_or(Error::NoAppropriateLoading(trunk))?;
+        Configurator::new(&mut packages, trunk).ok_or(Error::NoAppropriateLoading(trunk))?;
     let best = configurator
         .best()
         .ok_or(Error::NoAppropriateLoading(trunk))?;
@@ -106,46 +106,11 @@ pub enum Error {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::packing_list::compartments_from_groups;
-
-    #[test]
-    fn test_sleigh_example() {
-        let configurator = Configurator::new((1..=5).chain(7..=11).collect(), false).unwrap();
-        let packing_list = PackingList {
-            configurator: &configurator,
-            compartments: compartments_from_groups(&[11, 9], &[10, 8, 2], &[7, 5, 4, 3, 1], &[]),
-        };
-
-        assert_eq!(
-            packing_list.weight(Compartment::Footwell),
-            packing_list.weight(Compartment::LeftSaddle)
-        );
-        assert_eq!(
-            packing_list.weight(Compartment::Footwell),
-            packing_list.weight(Compartment::RightSaddle)
-        );
-        assert_eq!(packing_list.qe(Compartment::Footwell), 99);
-
-        let packing_list = PackingList {
-            configurator: &configurator,
-            compartments: compartments_from_groups(&[10, 9, 1], &[11, 7, 2], &[8, 5, 4, 3], &[]),
-        };
-
-        assert_eq!(
-            packing_list.weight(Compartment::Footwell),
-            packing_list.weight(Compartment::LeftSaddle)
-        );
-        assert_eq!(
-            packing_list.weight(Compartment::Footwell),
-            packing_list.weight(Compartment::RightSaddle)
-        );
-        assert_eq!(packing_list.qe(Compartment::Footwell), 90);
-    }
 
     #[test]
     fn test_example_no_trunk() {
-        let items = vec![1, 2, 3, 4, 5, 7, 8, 9, 10, 11];
-        let configurator = Configurator::new(items, false).unwrap();
+        let mut items = vec![1, 2, 3, 4, 5, 7, 8, 9, 10, 11];
+        let configurator = Configurator::new(&mut items, false).unwrap();
         let best = configurator.best().unwrap();
         println!("Best sleigh configuration: {:?}", best);
         assert_eq!(best.qe(Compartment::Footwell), 99);
@@ -153,8 +118,8 @@ mod tests {
 
     #[test]
     fn test_example_with_trunk() {
-        let items = vec![1, 2, 3, 4, 5, 7, 8, 9, 10, 11];
-        let configurator = Configurator::new(items, true).unwrap();
+        let mut items = vec![1, 2, 3, 4, 5, 7, 8, 9, 10, 11];
+        let configurator = Configurator::new(&mut items, true).unwrap();
         let best = configurator.best().unwrap();
         println!("Best sleigh configuration: {:?}", best);
         assert_eq!(best.qe(Compartment::Footwell), 44);
