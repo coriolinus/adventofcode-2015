@@ -252,6 +252,8 @@ mod test {
 
         let solution = bpg.next_solution_for(0).unwrap();
         assert_eq!(solution, vec![Some(0), None, Some(0), Some(0)]);
+
+        assert!(bpg.next_solution_for(0).is_none());
     }
 
     #[test]
@@ -266,5 +268,29 @@ mod test {
 
         let solution = bpg.next_solution_for(0).unwrap();
         assert_eq!(solution, vec![None, Some(0), Some(0), Some(0)]);
+
+        assert!(bpg.next_solution_for(0).is_none());
+    }
+
+    #[test]
+    fn test_safe_existing_data() {
+        let values = vec![5, 3, 2, 1];
+        let mut compartment_layout = vec![None; values.len()];
+        let mut bpg =
+            BoundedPermutationGenerator::new(&values, &mut compartment_layout, 5).unwrap();
+
+        let solution = bpg.next_solution_for(0).unwrap();
+        assert_eq!(solution, vec![Some(0), None, None, None]);
+        drop(bpg);
+
+        assert_eq!(compartment_layout, solution);
+
+        let mut bpg =
+            BoundedPermutationGenerator::new(&values, &mut compartment_layout, 5).unwrap();
+
+        let solution = bpg.next_solution_for(1).unwrap();
+        assert_eq!(solution, vec![Some(0), Some(1), Some(1), None]);
+
+        assert!(bpg.next_solution_for(1).is_none());
     }
 }
