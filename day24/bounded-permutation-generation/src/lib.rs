@@ -41,13 +41,13 @@ pub struct BoundedPermutationGenerator<'a, T, Compartment> {
 ///
 /// Imagine that we hadn't separated the lifetime from the references: it would look like
 ///
-/// ```ignore
+/// ```
 /// pub struct BoundedPermutationGenerator<'a, T, Compartment> {
-///   packages: &[T],
-///   compartment_layout: &mut [Option<Compartment>],
+///   packages: &'a [T],
+///   compartment_layout: &'a mut [Option<Compartment>],
 ///   package_idx: usize,
 ///   target_sum: T,
-///   child: Option<Box<BoundedPermissionGenerator<'a, T, Compartment>>>,
+///   child: Option<Box<BoundedPermutationGenerator<'a, T, Compartment>>>,
 /// }
 /// ```
 ///
