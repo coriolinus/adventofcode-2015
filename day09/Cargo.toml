@@ -7,8 +7,8 @@ edition = "2018"
 
 [dependencies]
 aoclib = { git = "https://github.com/coriolinus/aoclib.git" }
-color-eyre = "0.5.10"
-parse-display = "0.4.0"
-permutohedron = "^0.1.7"
+color-eyre = "0.5.11"
+parse-display = "0.4.1"
+permutohedron = "0.2.4"
 structopt = "0.3.21"
-thiserror = "1.0.22"
+thiserror = "1.0.24"

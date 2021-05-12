@@ -6,12 +6,12 @@ edition = "2018"
 
 [dependencies]
 aoclib = { git = "https://github.com/coriolinus/aoclib.git" }
-color-eyre = "0.5.10"
-gif = { version = "0.11.1", optional = true }
-parse-display = "0.4.0"
-rand = { version = "0.7.3", optional = true }
+color-eyre = "0.5.11"
+gif = { version = "0.11.2", optional = true }
+parse-display = "0.4.1"
+rand = { version = "0.8.3", optional = true }
 structopt = "0.3.21"
-thiserror = "1.0.22"
+thiserror = "1.0.24"
 
 [features]
 animate = [ "gif", "rand" ]
