@@ -23,8 +23,4 @@ impl<'a> PackingList<'a> {
             .map(|weight| weight as u64)
             .product()
     }
-
-    pub fn weight(&self, compartment: Compartment) -> Package {
-        self.packages_in(compartment).sum()
-    }
 }

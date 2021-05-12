@@ -271,8 +271,6 @@ where
 pub enum Error {
     #[error("`packages` input was not sorted")]
     PackagesNotSorted,
-    #[error("`compartment_layout` was too small")]
-    CompartmentLayoutTooSmall,
 }
 
 #[cfg(test)]

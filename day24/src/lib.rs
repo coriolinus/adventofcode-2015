@@ -58,9 +58,8 @@ mod packing_list;
 
 use std::path::Path;
 
-pub use crate::{
-    bounded_permutation_generator::BoundedPermutationGenerator, compartment::Compartment,
-    configurator::Configurator, packing_list::PackingList,
+pub(crate) use crate::{
+    compartment::Compartment, configurator::Configurator, packing_list::PackingList,
 };
 
 pub type Package = u16;
