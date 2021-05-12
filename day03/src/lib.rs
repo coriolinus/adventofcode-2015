@@ -26,14 +26,14 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use thiserror::Error;
 
-#[derive(Default, Clone)]
+#[derive(Clone, Debug)]
 pub struct CookieCrumbs {
     pub santa: Point,
     pub trail: HashMap<Point, u32>,
 }
 
-impl CookieCrumbs {
-    pub fn new() -> CookieCrumbs {
+impl Default for CookieCrumbs {
+    fn default() -> Self {
         let mut cc = CookieCrumbs {
             santa: Point::new(0, 0),
             trail: HashMap::new(),
@@ -42,6 +42,12 @@ impl CookieCrumbs {
         // by the problem definition, Santa has already visited the house at the origin
         cc.trail.insert(cc.santa, 1);
         cc
+    }
+}
+
+impl CookieCrumbs {
+    pub fn new() -> CookieCrumbs {
+        Self::default()
     }
 
     pub fn move_from_char(&mut self, ch: char) -> Result<(), Error> {
