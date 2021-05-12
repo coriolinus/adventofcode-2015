@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, ops::Sub};
+use std::{cmp::Ordering, marker::PhantomData, ops::Sub};
 
 pub trait Permutable: Copy + Ord + Sub<Output = Self> {}
 impl<T: Copy + Ord + Sub<Output = Self>> Permutable for T {}
@@ -28,11 +28,40 @@ impl<T: Copy + Ord + Sub<Output = Self>> Permutable for T {}
 // to overrule the mutability portion of the borrow checker.
 #[derive(Debug)]
 pub struct BoundedPermutationGenerator<'a, T, Compartment> {
-    packages: &'a [T],
-    compartment_layout: &'a mut [Option<Compartment>],
+    _lifetime: PhantomData<&'a ()>,
+    inner: Inner<T, Compartment>,
+}
+
+/// The inner structure contains all the actual implementation details of the solution generator.
+///
+/// It's a separate, private struct because it uses raw pointers instead of normal references.
+/// This is because it's recursive, and rustc can't figure out an appropriate lifetime otherwise.
+///
+/// Imagine that we hadn't separated the lifetime from the references: it would look like
+///
+/// ```ignore
+/// pub struct BoundedPermutationGenerator<'a, T, Compartment> {
+///   packages: &[T],
+///   compartment_layout: &mut [Option<Compartment>],
+///   package_idx: usize,
+///   target_sum: T,
+///   child: Option<Box<BoundedPermissionGenerator<'a, T, Compartment>>>,
+/// }
+/// ```
+///
+/// The problem is the `child` field: because we've defined it to be `'a`, then any borrow _must_
+/// last for that long, which doesn't work with the recursive strategy that we want to use. However,
+/// we don't have access to any other lifetime which we can use.
+///
+/// Splitting the lifetime away means that we have to do a little more work to ensure that everything
+/// stays safe, but it also means that this minimal-copy approach is possible at all.
+#[derive(Debug)]
+struct Inner<T, Compartment> {
+    packages: *const [T],
+    compartment_layout: *mut [Option<Compartment>],
     package_idx: usize,
     target_sum: T,
-    child: Option<Box<BoundedPermutationGenerator<'a, T, Compartment>>>,
+    child: Option<Box<Inner<T, Compartment>>>,
 }
 
 impl<'a, T, Compartment> BoundedPermutationGenerator<'a, T, Compartment>
@@ -58,20 +87,63 @@ where
             return Err(Error::CompartmentLayoutTooSmall);
         }
         Ok(BoundedPermutationGenerator {
-            packages,
-            compartment_layout,
-            target_sum,
-            package_idx: 0,
-            child: None,
+            _lifetime: PhantomData,
+            inner: Inner {
+                packages: packages as _,
+                compartment_layout: compartment_layout as _,
+                target_sum,
+                package_idx: 0,
+                child: None,
+            },
         })
     }
 
+    /// Recursively generate the next valid layout for members of this compartment.
+    ///
+    /// Each solution requires an allocation and data-copying proportional to `self.compartment_layout`.
+    pub fn next_solution_for(
+        &mut self,
+        compartment: Compartment,
+    ) -> Option<Vec<Option<Compartment>>> {
+        self.inner.next_solution_for(compartment)
+    }
+}
+
+impl<T, Compartment> Inner<T, Compartment>
+where
+    T: Permutable,
+    Compartment: Copy + Eq,
+{
+    /// Private access to `self.packages` as a slice.
+    ///
+    /// Safe because the only way to construct a `BoundedPermutationGenerator` requires a valid slice,
+    /// and we never edit the pointer.
+    fn packages(&self) -> &[T] {
+        unsafe { &*self.packages }
+    }
+
+    /// Private access to `self.compartment_layout` as a slice.
+    ///
+    /// Safe because the only way to construct a `BoundedPermutationGenerator` requires a valid slice,
+    /// and we never edit the pointer.
+    fn compartment_layout(&self) -> &[Option<Compartment>] {
+        unsafe { &*self.compartment_layout }
+    }
+
+    /// Private mutable access to `self.compartment_layout` as a slice.
+    ///
+    /// Safe because the only way to construct a `BoundedPermutationGenerator` requires a valid slice,
+    /// and we never edit the pointer.
+    fn compartment_layout_mut(&self) -> &mut [Option<Compartment>] {
+        unsafe { &mut *self.compartment_layout }
+    }
+
     /// Create a child generator which can be used to recursively seek solutions.
-    fn child(&mut self) -> Box<BoundedPermutationGenerator<T, Compartment>> {
-        Box::new(BoundedPermutationGenerator {
+    fn child(&mut self) -> Box<Self> {
+        Box::new(Self {
             packages: self.packages,
             compartment_layout: self.compartment_layout,
-            target_sum: self.target_sum - self.packages[self.package_idx],
+            target_sum: self.target_sum - self.packages()[self.package_idx],
             package_idx: self.package_idx + 1,
             child: None,
         })
@@ -80,25 +152,23 @@ where
     /// Recursively generate the next valid layout for members of this compartment.
     ///
     /// Each solution requires an allocation and data-copying proportional to `self.compartment_layout`.
-    fn next_solution_for(
-        &'a mut self,
-        compartment: Compartment,
-    ) -> Option<Vec<Option<Compartment>>> {
+    fn next_solution_for(&mut self, compartment: Compartment) -> Option<Vec<Option<Compartment>>> {
         let mut solution = None;
         while solution.is_none() {
-            match &mut self.child {
+            self.child = match self.child.take() {
                 None => {
                     // no child generator means that we should compare indices at this level.
-                    if self.package_idx >= self.packages.len() {
+                    if self.package_idx >= self.packages().len() {
                         // we've exhausted the packages available
                         break;
                     }
 
-                    if let Some(existing_compartment) = self.compartment_layout[self.package_idx] {
+                    if let Some(existing_compartment) = self.compartment_layout()[self.package_idx]
+                    {
                         if existing_compartment == compartment {
                             // we've re-entered after returning a valid solution.
                             // To avoid infinite loops, unset this value and try the next.
-                            self.compartment_layout[self.package_idx] = None;
+                            self.compartment_layout_mut()[self.package_idx] = None;
                         }
                         // otherwise never overwrite a previously-set member of the compartment layout.
                         // this property is essential for composability.
@@ -106,36 +176,42 @@ where
                         continue;
                     }
 
-                    match self.packages[self.package_idx].cmp(&self.target_sum) {
+                    match self.packages()[self.package_idx].cmp(&self.target_sum) {
                         Ordering::Greater => {
                             // no luck; try the next one
                             self.package_idx += 1;
+                            None
                         }
                         Ordering::Equal => {
                             // we've identified a legal package set. We're going
                             // to return it, but preserving all struct state so
                             // that we can resume from this point without issue.
-                            self.compartment_layout[self.package_idx] = Some(compartment);
-                            solution = Some(self.compartment_layout.to_vec());
+                            self.compartment_layout_mut()[self.package_idx] = Some(compartment);
+                            solution = Some(self.compartment_layout().to_vec());
+                            None
                         }
                         Ordering::Less => {
                             // recursively try different subsets
-                            self.compartment_layout[self.package_idx] = Some(compartment);
-                            self.child = Some(self.child());
+                            self.compartment_layout_mut()[self.package_idx] = Some(compartment);
+                            Some(self.child())
                         }
                     }
                 }
-                Some(ref mut child) => {
+                Some(mut child) => {
+                    // can't use `map` here because the borrow checker gets upset about the lifetime
+                    // as `child` moves through the closure.
                     match child.next_solution_for(compartment) {
-                        // while the child produces solutions, just pass them along.
                         Some(inner_solution) => {
+                            // while the child produces solutions, just pass them along.
                             solution = Some(inner_solution);
+                            Some(child)
                         }
-                        // Note that most cleanup is actually handled by the reentrant cleanup above.
-                        None => self.child = None,
+                        // If next_solution_for produces None, then `next_child` becomes None, engaging
+                        // cleanup once the loop cycles through to the next iteration.
+                        None => None,
                     }
                 }
-            }
+            };
         }
         solution
     }
@@ -153,7 +229,7 @@ where
 // }
 
 #[derive(Debug, PartialEq, Eq, thiserror::Error)]
-enum Error {
+pub enum Error {
     #[error("`packages` input was not sorted")]
     PackagesNotSorted,
     #[error("`compartment_layout` was too small")]
@@ -166,19 +242,29 @@ mod test {
 
     #[test]
     fn test_permutations_8() {
-        let values = Rc::new(vec![5, 3, 2, 1]);
-        assert_eq!(
-            BoundedPermutationGenerator::new_rc(values, 8).collect::<Vec<_>>(),
-            vec![vec![5, 3], vec![5, 2, 1]],
-        );
+        let values = vec![5, 3, 2, 1];
+        let mut compartment_layout = vec![None; values.len()];
+        let mut bpg =
+            BoundedPermutationGenerator::new(&values, &mut compartment_layout, 8).unwrap();
+
+        let solution = bpg.next_solution_for(0).unwrap();
+        assert_eq!(solution, vec![Some(0), Some(0), None, None]);
+
+        let solution = bpg.next_solution_for(0).unwrap();
+        assert_eq!(solution, vec![Some(0), None, Some(0), Some(0)]);
     }
 
     #[test]
     fn test_permutations_6() {
-        let values = Rc::new(vec![5, 3, 2, 1]);
-        assert_eq!(
-            BoundedPermutationGenerator::new_rc(values, 6).collect::<Vec<_>>(),
-            vec![vec![5, 1], vec![3, 2, 1]],
-        );
+        let values = vec![5, 3, 2, 1];
+        let mut compartment_layout = vec![None; values.len()];
+        let mut bpg =
+            BoundedPermutationGenerator::new(&values, &mut compartment_layout, 6).unwrap();
+
+        let solution = bpg.next_solution_for(0).unwrap();
+        assert_eq!(solution, vec![Some(0), None, None, Some(0)]);
+
+        let solution = bpg.next_solution_for(0).unwrap();
+        assert_eq!(solution, vec![None, Some(0), Some(0), Some(0)]);
     }
 }
