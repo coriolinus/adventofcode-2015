@@ -8,78 +8,73 @@ use std::{
 pub trait Permutable: Copy + Ord + Sub<Output = Self> {}
 impl<T: Copy + Ord + Sub<Output = Self>> Permutable for T {}
 
-type Solution<Compartment> = Vec<Option<Compartment>>;
+type Solution<Subset> = Vec<Option<Subset>>;
 
-/// A `BoundedPermutationGenerator` efficiently generates selections of packages having the required sum.
+/// A `BoundedPermutationGenerator` efficiently generates distinct subsets of an input list of items,
+/// where each subset sums to a particular value.
 ///
-/// # Method of operation
+/// Its output is `Solution`: a `Vec<Option<Subset>>`. A non-`None` entry in the `Solution`
+/// indicates that the corresponding value in `items` should be assigned to that subset.
 ///
-/// The `packages` slice is a reverse-sorted list of available packages. `package_idx` is an index
-/// into that slice.
+/// It can accept a partial solution with [`from_solution`][Self::from_solution]. In that case,
+/// [`next_solution_for`][Self::next_solution_for] will never select a value already used for a
+/// different subset.
 ///
-/// `queue` is a mutable reference to a scratchpad vector, which can be passed to recursive elements
-/// as necessary.
-///
-/// At each level of recursion, there is a loop considering each index in turn. For each iteration
-/// of that loop, the generator recursively attempts to produce a set summing to the desired target.
-///
-/// The recursion provides efficient backtracking.
-///
-/// Recursion termination conditions:
-///
-/// - if `idx >= self.packages.len()`, we have not achieved a sufficient sum; unwind
-/// - if we have discovered a set of packages with the desired size, increment `package_idx`, clone
-///   the scratchpad and return
-//
-// We have to get fancy with pinning because this generator is necessarily self-referential:
-// `inner` contains a reference to `scratch_space`.
+/// Note that the constructors always produce `Pin<Box<Self>>`. This is an implementation detail.
+/// To function efficiently, this contains (many) references to an area of memory used as a scratch
+/// space. If it were possible to use an external slice for this, then we wouldn't need to pin.
+/// However, we strongly desire that it's possible to construct a free-standing generator from this;
+/// that implies that this struct needs to own its working memory. That means that those
+/// references must be internal, which in turn means that we need to ensure that this struct never
+/// moves so that the internal references remain valid.
 #[derive(Debug, Clone)]
-pub struct BoundedPermutationGenerator<'a, T, Compartment> {
+pub struct BoundedPermutationGenerator<'a, T, Subset> {
     _lifetime: PhantomData<&'a ()>,
-    scratch_space: Solution<Compartment>,
-    inner: Inner<T, Compartment>,
+    scratch_space: Solution<Subset>,
+    inner: Inner<T, Subset>,
 }
 
-impl<'a, T, Compartment> BoundedPermutationGenerator<'a, T, Compartment>
+impl<'a, T, Subset> BoundedPermutationGenerator<'a, T, Subset>
 where
     T: Permutable,
-    Compartment: Copy + Eq,
+    Subset: Copy + Eq,
 {
-    /// Create a new `BoundedPermutationGenerator` from a list of packages.
+    /// Create a new `BoundedPermutationGenerator` from a list of items.
     ///
     /// # Preconditions
     ///
     /// - `packges` must be reverse-sorted.
-    pub fn new(
-        packages: &'a [T],
-        target_sum: T,
-    ) -> Result<Pin<Box<BoundedPermutationGenerator<'a, T, Compartment>>>, Error> {
-        Self::from_solution(packages, target_sum, vec![None; packages.len()])
+    pub fn new(items: &'a [T], target_sum: T) -> Result<Pin<Box<Self>>, Error> {
+        Self::from_solution(items, target_sum, vec![None; items.len()])
     }
 
-    /// Create a new `BoundedPermutationGenerator` from a list of packages and an existing solution.
+    /// Create a new `BoundedPermutationGenerator` from a list of items and an existing partial solution.
     ///
     /// # Preconditions
     ///
-    /// - `packages` must be reverse-sorted.
+    /// - `items` must be reverse-sorted.
+    /// - `solution.len()` must equal `items.len()`.
     pub fn from_solution(
-        packages: &'a [T],
+        items: &'a [T],
         target_sum: T,
-        solution: Solution<Compartment>,
-    ) -> Result<Pin<Box<BoundedPermutationGenerator<'a, T, Compartment>>>, Error> {
-        if !packages.windows(2).all(|window| window[1] <= window[0]) {
-            return Err(Error::PackagesNotSorted);
+        solution: Solution<Subset>,
+    ) -> Result<Pin<Box<Self>>, Error> {
+        if solution.len() != items.len() {
+            return Err(Error::WrongSolutionSize(solution.len(), items.len()));
+        }
+        if !items.windows(2).all(|window| window[1] <= window[0]) {
+            return Err(Error::ItemsNotSorted);
         }
         let mut temporary = Vec::new();
-        // we'll update the `compartment_layout` field to be non-null once the outer is pinned
+        // we'll update the `subset_layout` field to be non-null once the outer is pinned
         let bpg = BoundedPermutationGenerator {
             _lifetime: PhantomData,
             scratch_space: solution,
             inner: Inner {
-                packages: packages as _,
-                compartment_layout: temporary.as_mut_slice() as _,
+                items: items as _,
+                scratch_space: temporary.as_mut_slice() as _,
                 target_sum,
-                package_idx: 0,
+                idx: 0,
                 child: None,
             },
         };
@@ -89,25 +84,22 @@ where
         // safe because modifying a field never moves the whole struct
         unsafe {
             let mut_ref: Pin<&mut Self> = Pin::as_mut(&mut boxed);
-            Pin::get_unchecked_mut(mut_ref).inner.compartment_layout = scratch_space;
+            Pin::get_unchecked_mut(mut_ref).inner.scratch_space = scratch_space;
         }
 
         Ok(boxed)
     }
 
-    /// Recursively generate the next valid layout for members of this compartment.
+    /// Generate the next valid layout for members of this subset.
     ///
-    /// Each solution requires an allocation and data-copying proportional to `self.compartment_layout`.
-    pub fn next_solution_for(&mut self, compartment: Compartment) -> Option<Solution<Compartment>> {
-        self.inner.next_solution_for(compartment)
+    /// Each solution requires an allocation and data-copying proportional to `self.subset_layout`.
+    pub fn next_solution_for(&mut self, subset: Subset) -> Option<Solution<Subset>> {
+        self.inner.next_solution_for(subset)
     }
 
     /// Transform into an iterator over the remaining solutions of this generator.
-    pub fn into_iter(self: Pin<Box<Self>>, compartment: Compartment) -> Iter<'a, T, Compartment> {
-        Iter {
-            bpg: self,
-            compartment,
-        }
+    pub fn into_iter(self: Pin<Box<Self>>, subset: Subset) -> Iter<'a, T, Subset> {
+        Iter { bpg: self, subset }
     }
 }
 
@@ -119,12 +111,12 @@ where
 /// Imagine that we hadn't separated the lifetime from the references: it would look like
 ///
 /// ```
-/// pub struct BoundedPermutationGenerator<'a, T, Compartment> {
-///   packages: &'a [T],
-///   compartment_layout: &'a mut [Option<Compartment>],
-///   package_idx: usize,
+/// pub struct BoundedPermutationGenerator<'a, T, Subset> {
+///   items: &'a [T],
+///   scratch_space: &'a mut [Option<Subset>],
+///   item_idx: usize,
 ///   target_sum: T,
-///   child: Option<Box<BoundedPermutationGenerator<'a, T, Compartment>>>,
+///   child: Option<Box<BoundedPermutationGenerator<'a, T, Subset>>>,
 /// }
 /// ```
 ///
@@ -135,110 +127,116 @@ where
 /// Splitting the lifetime away means that we have to do a little more work to ensure that everything
 /// stays safe, but it also means that this minimal-copy approach is possible at all.
 #[derive(Debug, Clone)]
-struct Inner<T, Compartment> {
-    packages: *const [T],
-    compartment_layout: *mut [Option<Compartment>],
-    package_idx: usize,
+struct Inner<T, Subset> {
+    /// a reverse-sorted list of available items.
+    items: *const [T],
+    /// working space containing the current state of the partial solution.
+    scratch_space: *mut [Option<Subset>],
+    /// an index into `self.items` and `self.subset_layout`.
+    idx: usize,
+    /// keeps track of the value we're looking for at this depth of recursion.
     target_sum: T,
-    child: Option<Box<Inner<T, Compartment>>>,
+    /// if present, a recursive child assuming that the current item is part of the solution.
+    child: Option<Box<Inner<T, Subset>>>,
 }
 
-impl<T, Compartment> Inner<T, Compartment>
+impl<T, Subset> Inner<T, Subset>
 where
     T: Permutable,
-    Compartment: Copy + Eq,
+    Subset: Copy + Eq,
 {
-    /// Private access to `self.packages` as a slice.
+    /// Private access to `self.items` as a slice.
     ///
     /// Safe because the only way to construct a `BoundedPermutationGenerator` requires a valid slice,
     /// and we never edit the pointer.
-    fn packages(&self) -> &[T] {
-        unsafe { &*self.packages }
+    fn items(&self) -> &[T] {
+        unsafe { &*self.items }
     }
 
-    /// Private access to `self.compartment_layout` as a slice.
+    /// Private access to `self.subset_layout` as a slice.
     ///
     /// Safe because the only way to construct a `BoundedPermutationGenerator` requires a valid slice,
     /// and we never edit the pointer.
-    fn compartment_layout(&self) -> &[Option<Compartment>] {
-        unsafe { &*self.compartment_layout }
+    fn subset_layout(&self) -> &[Option<Subset>] {
+        unsafe { &*self.scratch_space }
     }
 
-    /// Private mutable access to `self.compartment_layout` as a slice.
+    /// Private mutable access to `self.subset_layout` as a slice.
     ///
     /// Safe because the only way to construct a `BoundedPermutationGenerator` requires a valid slice,
     /// and we never edit the pointer.
-    fn compartment_layout_mut(&self) -> &mut [Option<Compartment>] {
-        unsafe { &mut *self.compartment_layout }
+    fn subset_layout_mut(&self) -> &mut [Option<Subset>] {
+        unsafe { &mut *self.scratch_space }
     }
 
     /// Create a child generator which can be used to recursively seek solutions.
     fn child(&mut self) -> Box<Self> {
         Box::new(Self {
-            packages: self.packages,
-            compartment_layout: self.compartment_layout,
-            target_sum: self.target_sum - self.packages()[self.package_idx],
-            package_idx: self.package_idx + 1,
+            items: self.items,
+            scratch_space: self.scratch_space,
+            target_sum: self.target_sum - self.items()[self.idx],
+            idx: self.idx + 1,
             child: None,
         })
     }
 
-    /// Recursively generate the next valid layout for members of this compartment.
+    /// Recursively generate the next valid layout for members of this subset.
     ///
-    /// Each solution requires an allocation and data-copying proportional to `self.compartment_layout`.
-    fn next_solution_for(&mut self, compartment: Compartment) -> Option<Vec<Option<Compartment>>> {
+    /// Each solution requires an allocation and data-copying proportional to `self.subset_layout`.
+    ///
+    /// # Method of operation
+    ///
+    /// - if we have a child, produce its next solution
+    /// - if we don't have a child, for each index available to us:
+    ///   - if it's greater than the target, then just try the next one
+    ///   - if it's equal to the target, then we know the solution is complete
+    ///   - if it's less than the target, create a child which will attempt to generate solutions
+    ///     assuming that the current item is a member of the solution set
+    ///
+    /// Because this is recursive and cleans up after itself, the stack provides efficient backtracking.
+    fn next_solution_for(&mut self, subset: Subset) -> Option<Solution<Subset>> {
         let mut solution = None;
-        while solution.is_none() {
+        while solution.is_none() && self.idx < self.items().len() {
             match self.child {
                 None => {
-                    // no child generator means that we should compare indices at this level.
-                    if self.package_idx >= self.packages().len() {
-                        // we've exhausted the packages available
-                        break;
-                    }
-
-                    if let Some(existing_compartment) = self.compartment_layout()[self.package_idx]
-                    {
-                        if existing_compartment == compartment {
+                    if let Some(existing_subset) = self.subset_layout()[self.idx] {
+                        if existing_subset == subset {
                             // we've re-entered after returning a valid solution.
                             // To avoid infinite loops, unset this value and try the next.
-                            self.compartment_layout_mut()[self.package_idx] = None;
+                            self.subset_layout_mut()[self.idx] = None;
                         }
-                        // otherwise never overwrite a previously-set member of the compartment layout.
+                        // otherwise never overwrite a previously-set member of the subset layout.
                         // this property is essential for composability.
-                        self.package_idx += 1;
+                        self.idx += 1;
                         continue;
                     }
 
-                    match self.packages()[self.package_idx].cmp(&self.target_sum) {
+                    match self.items()[self.idx].cmp(&self.target_sum) {
                         Ordering::Greater => {
                             // no luck; try the next one
-                            self.package_idx += 1;
+                            self.idx += 1;
                         }
                         Ordering::Equal => {
-                            // we've identified a legal package set. We're going
-                            // to return it, but preserving all struct state so
-                            // that we can resume from this point without issue.
-                            self.compartment_layout_mut()[self.package_idx] = Some(compartment);
-                            solution = Some(self.compartment_layout().to_vec());
+                            // we've identified a valid solution.
+                            self.subset_layout_mut()[self.idx] = Some(subset);
+                            solution = Some(self.subset_layout().to_vec());
                         }
                         Ordering::Less => {
-                            // recursively try different subsets
-                            self.compartment_layout_mut()[self.package_idx] = Some(compartment);
+                            // recursively try different subsets assuming this item is a member of
+                            // the solution.
+                            self.subset_layout_mut()[self.idx] = Some(subset);
                             self.child = Some(self.child());
                         }
                     }
                 }
                 Some(ref mut child) => {
-                    // can't use `map` here because the borrow checker gets upset about the lifetime
-                    // as `child` moves through the closure.
-                    match child.next_solution_for(compartment) {
+                    match child.next_solution_for(subset) {
                         Some(inner_solution) => {
                             // while the child produces solutions, just pass them along.
                             solution = Some(inner_solution);
                         }
-                        // If next_solution_for produces None, then `next_child` becomes None, engaging
-                        // cleanup once the loop cycles through to the next iteration.
+                        // If the child stops producing values, unset it; the next iteration of the
+                        // main loop will clean up the rest.
                         None => self.child = None,
                     }
                 }
@@ -248,29 +246,31 @@ where
     }
 }
 
-pub struct Iter<'a, T, Compartment> {
-    bpg: Pin<Box<BoundedPermutationGenerator<'a, T, Compartment>>>,
-    compartment: Compartment,
+pub struct Iter<'a, T, Subset> {
+    bpg: Pin<Box<BoundedPermutationGenerator<'a, T, Subset>>>,
+    subset: Subset,
 }
 
-impl<'a, T, Compartment> Iterator for Iter<'a, T, Compartment>
+impl<'a, T, Subset> Iterator for Iter<'a, T, Subset>
 where
     T: Permutable,
-    Compartment: Copy + Eq,
-    Pin<Box<BoundedPermutationGenerator<'a, T, Compartment>>>:
-        DerefMut<Target = BoundedPermutationGenerator<'a, T, Compartment>>,
+    Subset: Copy + Eq,
+    Pin<Box<BoundedPermutationGenerator<'a, T, Subset>>>:
+        DerefMut<Target = BoundedPermutationGenerator<'a, T, Subset>>,
 {
-    type Item = Solution<Compartment>;
+    type Item = Solution<Subset>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.bpg.next_solution_for(self.compartment)
+        self.bpg.next_solution_for(self.subset)
     }
 }
 
 #[derive(Debug, PartialEq, Eq, thiserror::Error)]
 pub enum Error {
-    #[error("`packages` input was not sorted")]
-    PackagesNotSorted,
+    #[error("`items` input was not sorted")]
+    ItemsNotSorted,
+    #[error("Solution has {0} entries but must have {1} to match items")]
+    WrongSolutionSize(usize, usize),
 }
 
 #[cfg(test)]
