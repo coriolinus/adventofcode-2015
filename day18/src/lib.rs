@@ -77,7 +77,7 @@
 //! In your grid of 100x100 lights, given your initial configuration, how many lights are on after 100 steps?
 
 use aoclib::geometry::{tile::DisplayWidth, Map};
-use std::{convert::TryFrom, path::Path};
+use std::path::Path;
 use thiserror::Error;
 
 #[cfg(feature = "animate")]
@@ -158,7 +158,9 @@ pub fn count_on(grid: &Grid) -> usize {
 }
 
 pub fn part1(input: &Path) -> Result<(), Error> {
-    let mut grid = Grid::try_from(input)?;
+    let file = std::fs::File::open(input)?;
+    let buffer = std::io::BufReader::new(file);
+    let mut grid = Grid::try_from(buffer)?;
     for _ in 0..ITERATIONS {
         grid = next_state(&grid);
     }
@@ -168,7 +170,9 @@ pub fn part1(input: &Path) -> Result<(), Error> {
 }
 
 pub fn part2(input: &Path) -> Result<(), Error> {
-    let mut grid = Grid::try_from(input)?;
+    let file = std::fs::File::open(input)?;
+    let buffer = std::io::BufReader::new(file);
+    let mut grid = Grid::try_from(buffer)?;
     for _ in 0..ITERATIONS {
         grid = next_state_stuck(&grid);
     }
@@ -187,6 +191,8 @@ pub enum Error {
     #[cfg(feature = "animate")]
     #[error("encoding gif")]
     Gif(#[from] gif::EncodingError),
+    #[error("could not read map")]
+    MapConversion(#[from] aoclib::geometry::map::MapConversionErr),
 }
 
 #[cfg(test)]
